@@ -19,7 +19,7 @@ import java.util.Date;
 public class WorkflowTask {
     private static final Logger LOG = LoggerFactory.getLogger(WorkflowTask.class);
 
-    private static final SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm:ss");
+    private final SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm:ss");
 
     private static String accessToken;
 
