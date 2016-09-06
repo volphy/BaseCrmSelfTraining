@@ -4,14 +4,19 @@ buildscript {
 	}
 	repositories {
 		mavenCentral()
+		maven {
+			url "https://plugins.gradle.org/m2/"
+		}
 	}
 	dependencies {
 		classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
+		classpath "org.sonarsource.scanner.gradle:sonarqube-gradle-plugin:2.1-rc3"
 	}
 }
 
 apply plugin: 'groovy'
 apply plugin: 'spring-boot'
+apply plugin: 'org.sonarqube'
 
 jar {
 	baseName = 'self-training'
@@ -26,6 +31,7 @@ repositories {
 	maven {
 		url  "http://dl.bintray.com/basecrm/maven"
 	}
+
 }
 
 dependencies {
