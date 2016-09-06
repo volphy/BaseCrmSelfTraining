@@ -36,8 +36,9 @@ class ContactsTest extends Specification {
     Deal sampleDeal
 
     def setupSpec() {
+        assert accessToken
         baseClient = new Client(new Configuration.Builder()
-                .accessToken(getAccessToken())
+                .accessToken(accessToken)
                 .verbose()
                 .build())
     }
@@ -50,10 +51,10 @@ class ContactsTest extends Specification {
     // Create sample contact if not exists yet
     // Create sample deal and set its primary contact to newly created sample contact
     def setup() {
-        def sampleContactId = baseClient.contacts().list([name : getSampleCompanyName()])[0]?.id
+        def sampleContactId = baseClient.contacts().list([name : sampleCompanyName])[0]?.id
 
         if (sampleContactId) {
-            def sampleDealName = getSampleDealName(getSampleCompanyName())
+            def sampleDealName = getSampleDealName(sampleCompanyName)
             def sampleDealId = baseClient.deals().list([name : sampleDealName])[0]?.id
             if (sampleDealId) {
                 baseClient.deals().delete(sampleDealId)
@@ -62,17 +63,17 @@ class ContactsTest extends Specification {
             baseClient.contacts().delete(sampleContactId)
         }
 
-        sampleContact = baseClient.contacts().create([name : getSampleCompanyName(),
+        sampleContact = baseClient.contacts().create([name : sampleCompanyName,
                                                         is_organization : true,
-                                                        website : getSampleCompanyWebsite(),
-                                                        owner_id: getSampleCompanyOwnerId()])
+                                                        website : sampleCompanyWebsite,
+                                                        owner_id: sampleCompanyOwnerId])
 
         sampleContactId = sampleContact.id
 
-        sampleDeal = baseClient.deals().create([name : getSampleDealName(getSampleCompanyName()),
+        sampleDeal = baseClient.deals().create([name : getSampleDealName(sampleCompanyName),
                                                 contact_id : sampleContactId,
                                                 owner_id : sampleContact.ownerId,
-                                                stage_id: getFirstStageId()])
+                                                stage_id: firstStageId])
     }
 
     def getSampleCompanyName() {
@@ -105,25 +106,33 @@ class ContactsTest extends Specification {
     }
 
     def "sample contact exists"() {
+        given:
+        context != null
+        baseClient instanceof Client
+
         when:
         sampleContact instanceof Contact
 
         then:
-        sampleContact.name == getSampleCompanyName()
+        sampleContact.name == sampleCompanyName
         sampleContact.isOrganization
-        sampleContact.website == getSampleCompanyWebsite()
+        sampleContact.website == sampleCompanyWebsite
         sampleContact.ownerId
     }
 
     def "sample deal attached to sample contact exists"() {
+        given:
+        context != null
+        baseClient instanceof Client
+
         when:
         sampleContact instanceof Contact
         sampleDeal instanceof Deal
 
         then:
         sampleDeal.contactId == sampleContact.id
-        sampleDeal.name == getSampleDealName(getSampleCompanyName())
+        sampleDeal.name == getSampleDealName(sampleCompanyName)
         sampleDeal.ownerId == sampleContact.ownerId
-        sampleDeal.stageId == getFirstStageId()
+        sampleDeal.stageId == firstStageId
     }
 }

@@ -27,8 +27,9 @@ public class UsersTest extends Specification {
     @Shared Client baseClient
 
     def setupSpec() {
+        assert accessToken
         baseClient = new Client(new Configuration.Builder()
-                .accessToken(getAccessToken())
+                .accessToken(accessToken)
                 .verbose()
                 .build())
     }
@@ -43,6 +44,7 @@ public class UsersTest extends Specification {
 
     def "admin user exists"() {
         given:
+            adminEmail
             context != null
             baseClient instanceof Client
 
@@ -50,7 +52,6 @@ public class UsersTest extends Specification {
             def response = baseClient.users()
 
         then: "Verifying if admin user exists"
-            def adminEmail = getAdminEmail()
             response.self().email == adminEmail
             response.self().confirmed
             response.self().role == "admin"
@@ -63,6 +64,7 @@ public class UsersTest extends Specification {
 
     def "account manager exists"() {
         given:
+        accountManagerEmail
         context != null
         baseClient instanceof Client
 
@@ -77,7 +79,7 @@ public class UsersTest extends Specification {
                                             it.email =~ amEmailsPattern}
 
         then: "Verifying if account manager exists"
-        amUsers.size() == 1
+        amUsers.size() >= 1
         amUsers.get(0).email == accountManagerEmail
         amUsers.get(0).confirmed
         amUsers.get(0).status == "active"
@@ -99,7 +101,7 @@ public class UsersTest extends Specification {
                                                 it.email =~ salesRepEmailsPattern}
 
         then: "Verifying if sales representatives exist"
-        salesRepUsers.size() == 3
+        salesRepUsers.size() >= 3
         salesRepUsers.forEach { it.confirmed == true}
         salesRepUsers.forEach { it.status == "active"}
     }
