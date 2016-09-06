@@ -59,14 +59,7 @@ public class UsersTest extends Specification {
             response.self().status == "active"
     }
 
-    def getAccountManagerEmail() {
-        return "chrismwilk+accountmanager+sara@gmail.com"
-    }
-
     def "account manager exists"() {
-        given:
-        accountManagerEmail
-
         when: "Fetching list of users"
         def response = baseClient.users()
         def amEmailsPattern = "\\+accountmanager\\+"
@@ -79,7 +72,6 @@ public class UsersTest extends Specification {
 
         then: "Verifying if account manager exists"
         amUsers.size() >= 1
-        amUsers.get(0).email == accountManagerEmail
         amUsers.get(0).confirmed
         amUsers.get(0).status == "active"
     }
