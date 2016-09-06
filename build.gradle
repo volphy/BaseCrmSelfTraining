@@ -29,13 +29,12 @@ repositories {
 }
 
 dependencies {
-	compile('org.springframework.boot:spring-boot-starter-web')
-	compile('com.getbase:basecrm-java:1.4.3')
+	compile 'org.springframework.boot:spring-boot-starter-web'
+	compile 'com.getbase:basecrm-java:1.4.3'
 
-	testCompile('org.spockframework:spock-spring:1.0-groovy-2.4')
-
-
-	testCompile('org.springframework.boot:spring-boot-starter-test')
+	testCompile 'org.spockframework:spock-spring:1.0-groovy-2.4'
+	testCompile 'org.springframework.boot:spring-boot-starter-test'
+	testCompile 'org.awaitility:awaitility:2.0.0'
 }
 
 test {

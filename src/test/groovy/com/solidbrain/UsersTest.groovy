@@ -17,7 +17,7 @@ import spock.lang.Shared
 
 import com.getbase.Client
 
-@ContextConfiguration  // makes Spock to start Spring context
+@ContextConfiguration  // makes Spock start Spring context
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public class UsersTest extends Specification {
 
@@ -28,10 +28,13 @@ public class UsersTest extends Specification {
 
     def setupSpec() {
         assert accessToken
+
         baseClient = new Client(new Configuration.Builder()
                 .accessToken(accessToken)
                 .verbose()
                 .build())
+
+        assert baseClient instanceof Client
     }
 
     def getAccessToken() {
@@ -45,8 +48,6 @@ public class UsersTest extends Specification {
     def "admin user exists"() {
         given:
             adminEmail
-            context != null
-            baseClient instanceof Client
 
         when: "Fetching list of users"
             def response = baseClient.users()
@@ -65,8 +66,6 @@ public class UsersTest extends Specification {
     def "account manager exists"() {
         given:
         accountManagerEmail
-        context != null
-        baseClient instanceof Client
 
         when: "Fetching list of users"
         def response = baseClient.users()
@@ -86,10 +85,6 @@ public class UsersTest extends Specification {
     }
 
     def "sales representatives exist"() {
-        given:
-        context != null
-        baseClient instanceof Client
-
         when: "Fetching list of users"
         def response = baseClient.users()
         def salesRepEmailsPattern = "\\+salesrep\\+"
@@ -102,7 +97,7 @@ public class UsersTest extends Specification {
 
         then: "Verifying if sales representatives exist"
         salesRepUsers.size() >= 3
-        salesRepUsers.forEach { it.confirmed == true}
+        salesRepUsers.forEach { it.confirmed}
         salesRepUsers.forEach { it.status == "active"}
     }
 }
