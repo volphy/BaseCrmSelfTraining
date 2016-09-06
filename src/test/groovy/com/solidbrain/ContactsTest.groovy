@@ -48,7 +48,7 @@ class ContactsTest extends Specification {
     }
 
     def getAccessToken() {
-        return System.getenv("BASE_CRM_TOKEN")
+        return  System.getenv("BASE_CRM_TOKEN") ? System.getenv("BASE_CRM_TOKEN"): System.getProperty("BASE_CRM_TOKEN")
     }
 
     def cleanup() {

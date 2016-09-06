@@ -39,4 +39,5 @@ dependencies {
 
 test {
 	outputs.upToDateWhen { false }
+	systemProperties = System.properties
 }

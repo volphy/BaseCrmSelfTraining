@@ -38,11 +38,11 @@ public class UsersTest extends Specification {
     }
 
     def getAccessToken() {
-        return System.getenv("BASE_CRM_TOKEN")
+        return  System.getenv("BASE_CRM_TOKEN") ? System.getenv("BASE_CRM_TOKEN") : System.getProperty("BASE_CRM_TOKEN")
     }
 
     def getAdminEmail() {
-        return System.getenv("ADMIN_EMAIL")
+        return System.getenv("ADMIN_EMAIL") ? System.getenv("ADMIN_EMAIL") : System.getProperty("ADMIN_EMAIL")
     }
 
     def "admin user exists"() {
