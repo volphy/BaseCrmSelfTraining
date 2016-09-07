@@ -3,6 +3,7 @@ package com.solidbrain;
 import com.getbase.Client;
 import com.getbase.Configuration;
 import com.getbase.models.Contact;
+import com.getbase.services.ContactsService;
 import com.getbase.sync.Sync;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,13 +12,17 @@ import org.springframework.stereotype.Component;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
+import java.util.Optional;
 
 /**
  * Created by Krzysztof Wilk on 06/09/16.
  */
 @Component
-public class WorkflowTask {
+class WorkflowTask {
     private static final Logger LOG = LoggerFactory.getLogger(WorkflowTask.class);
+
+    private static final String SAMPLE_COMPANY_NAME = "Some Company Of Mine";
 
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm:ss");
 
@@ -46,13 +51,24 @@ public class WorkflowTask {
     public void reportCurrentTime() {
         LOG.info("The time is now {}", dateFormat.format(new Date()));
         sync.fetch();
+
+        List<Contact> fetchedContacts = baseClient.contacts().list(new ContactsService.SearchCriteria().name(SAMPLE_COMPANY_NAME));
+
+        Contact sampleContact = null;
+        if (!fetchedContacts.isEmpty()) {
+            sampleContact = fetchedContacts.get(0);
+        }
+
+        LOG.info("Found new contact=" + sampleContact);
     }
 
     private String getAccessToken() {
-        return System.getProperty("BASE_CRM_TOKEN", System.getenv("BASE_CRM_TOKEN"));
+        return Optional.ofNullable(System.getProperty("BASE_CRM_TOKEN", System.getenv("BASE_CRM_TOKEN"))).
+                orElse("");
     }
 
     private String getDeviceUuid() {
-        return System.getProperty("DEVICE_UUID", System.getenv("DEVICE_UUID"));
+        return Optional.ofNullable(System.getProperty("DEVICE_UUID", System.getenv("DEVICE_UUID"))).
+                orElse("");
     }
 }
