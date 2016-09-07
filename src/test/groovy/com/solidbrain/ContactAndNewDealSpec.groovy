@@ -4,19 +4,15 @@ import com.getbase.Client
 import com.getbase.models.Contact
 import com.getbase.Configuration
 import com.getbase.models.Deal
-import com.getbase.models.Stage
 import com.getbase.services.StagesService
 import com.getbase.services.UsersService
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.test.context.ContextConfiguration
-import org.springframework.web.context.WebApplicationContext
+import groovy.util.logging.Slf4j
+import org.awaitility.core.ConditionTimeoutException
 import spock.lang.Specification
 import spock.lang.Shared
 
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
-import java.util.concurrent.TimeUnit
 
 import static org.awaitility.Awaitility.await
 import static java.util.concurrent.TimeUnit.SECONDS
@@ -27,13 +23,8 @@ import static java.util.concurrent.TimeUnit.SECONDS
  * Created by Krzysztof Wilk on 05/09/16.
  */
 
-@ContextConfiguration  // makes Spock start Spring context
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class ContactsTest extends Specification {
-
-    @Autowired
-    WebApplicationContext context
-
+@Slf4j
+class ContactAndNewDealSpec extends Specification {
     @Shared Client baseClient
 
     def setupSpec() {
@@ -41,14 +32,13 @@ class ContactsTest extends Specification {
 
         baseClient = new Client(new Configuration.Builder()
                 .accessToken(accessToken)
-                .verbose()
                 .build())
 
         assert baseClient instanceof Client
     }
 
     def getAccessToken() {
-        return System.getenv("BASE_CRM_TOKEN")
+        return System.getProperty("BASE_CRM_TOKEN", System.getenv("BASE_CRM_TOKEN"))
     }
 
     def cleanup() {
@@ -64,7 +54,6 @@ class ContactsTest extends Specification {
         baseClient.contacts().delete(sampleCompanyId)
     }
 
-
     def getSampleCompanyName() {
         return "Some Company Of Mine"
     }
@@ -77,23 +66,23 @@ class ContactsTest extends Specification {
         return baseClient.stages().list(new StagesService.SearchCriteria().name("Incoming"))[0]?.id
     }
 
+    // Find id of any sales representative
     def getSampleSalesRepresentativeId() {
         def salesRepEmailsPattern = "\\+salesrep\\+"
 
-        return baseClient.users().list(new UsersService.SearchCriteria().
-                                                    asMap()).
-                            find { it.confirmed &&
+        return baseClient.users().list(new UsersService.SearchCriteria()).
+                    find { it.confirmed &&
                                     it.status == "active" &&
                                     it.role == "user" &&
                                     it.email =~ salesRepEmailsPattern}.
                             id
     }
 
+    // Find id of the account manager (if more than one available, the first one is used)
     def getSampleAccountManagerId() {
         def accountManagerEmailsPattern = "\\+accountmanager\\+"
 
-        return baseClient.users().list(new UsersService.SearchCriteria().
-                asMap()).
+        return baseClient.users().list(new UsersService.SearchCriteria()).
                 find { it.confirmed &&
                         it.status == "active" &&
                         it.role == "user" &&
@@ -103,78 +92,67 @@ class ContactsTest extends Specification {
 
     def "should create deal if the newly created contact is a company and the owner of the newly created contact is a sales representative"() {
         given:
-        sampleCompanyName
-        def isContactACompany = true
         sampleSalesRepresentativeId
 
         when:
+        def isContactACompany = true
         Contact sampleContact = baseClient.contacts().create([name : sampleCompanyName,
                                                               is_organization:  isContactACompany,
                                                               owner_id: sampleSalesRepresentativeId])
-        Deal sampleDeal = null
-        await().atMost(30, SECONDS).until {
-            sampleDeal = baseClient.deals().list([contact_id: sampleContact.id])[0]
-        }
 
         then:
-        sampleDeal
+        def newDealFound = true
+        try {
+            await().atMost(30, SECONDS).pollInterval(1, SECONDS).ignoreExceptions().until {
+                !baseClient.deals().list([contact_id: sampleContact.id]).isEmpty()
+            }
+        } catch (ConditionTimeoutException e) {
+            newDealFound = false
+        }
+        newDealFound
+        Deal sampleDeal = baseClient.deals().list([contact_id: sampleContact.id]).get(0)
         sampleDeal.name == getSampleDealName(sampleCompanyName)
         sampleDeal.ownerId == sampleContact.ownerId
         sampleDeal.stageId == firstStageId
     }
 
     def "should not create deal if the newly created contact is not a company"() {
-        given:
-        sampleCompanyName
-        def isContactACompany = false
-        sampleSalesRepresentativeId
-
         when:
+        def isContactACompany = false
         Contact sampleContact = baseClient.contacts().create([name : sampleCompanyName,
-                                                              is_organization:  isContactACompany,
-                                                              owner_id: sampleSalesRepresentativeId])
-        Deal sampleDeal = null
-        await().atMost(30, SECONDS).until {
-            sampleDeal = baseClient.deals().list([contact_id: sampleContact.id])[0]
-        }
+                                                              is_organization:  isContactACompany])
 
         then:
+        sleep(30_000)
+        Deal sampleDeal = baseClient.deals().list([contact_id: sampleContact.id])[0]
         sampleDeal == null
     }
 
     def "should not create deal if the owner of the newly created contact is not a sales representative"() {
         given:
-        sampleCompanyName
-        def isContactACompany = true
         sampleAccountManagerId
 
         when:
+        def isContactACompany = true
         Contact sampleContact = baseClient.contacts().create([name : sampleCompanyName,
                                                               is_organization:  isContactACompany,
                                                               owner_id: sampleAccountManagerId])
-        Deal sampleDeal = null
-        await().atMost(30, SECONDS).until {
-            sampleDeal = baseClient.deals().list([contact_id: sampleContact.id])[0]
-        }
 
         then:
+        sleep(30_000)
+        Deal sampleDeal = baseClient.deals().list([contact_id: sampleContact.id])[0]
         sampleDeal == null
     }
 
     def "should not create deal if the newly created contact does not have an owner"() {
-        given:
-        sampleCompanyName
-        def isContactACompany = true
-
         when:
+        def isContactACompany = true
         Contact sampleContact = baseClient.contacts().create([name : sampleCompanyName,
                                                               is_organization:  isContactACompany])
-        Deal sampleDeal = null
-        await().atMost(30, SECONDS).until {
-            sampleDeal = baseClient.deals().list([contact_id: sampleContact.id])[0]
-        }
 
         then:
+        sleep(30_000)
+        Deal sampleDeal = baseClient.deals().list([contact_id: sampleContact.id])[0]
         sampleDeal == null
     }
 }
