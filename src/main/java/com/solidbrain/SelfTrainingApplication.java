@@ -6,7 +6,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
 @EnableScheduling
-public class SelfTrainingApplication {
+class SelfTrainingApplication {
 
 	public static void main(String[] args) {
 		SpringApplication.run(SelfTrainingApplication.class, args);
