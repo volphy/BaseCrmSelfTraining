@@ -12,9 +12,8 @@ import spock.lang.Specification
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS
 import static org.awaitility.Awaitility.await
-import static java.util.concurrent.TimeUnit.SECONDS
-
 
 
 /**
@@ -25,6 +24,12 @@ import static java.util.concurrent.TimeUnit.SECONDS
 class ContactAndNewDealSpec extends Specification {
     Client baseClient
 
+    def sampleSalesRepId
+    def sampleAccountManagerId
+
+    long defaultTimeout = 30_000
+    long defautPollInterval = 1_000
+
     def setup() {
         assert accessToken
 
@@ -33,6 +38,12 @@ class ContactAndNewDealSpec extends Specification {
                 .build())
 
         assert baseClient instanceof Client
+
+        sampleSalesRepId = getSampleUserId("salesrep")
+        assert sampleSalesRepId
+
+        sampleAccountManagerId = getSampleUserId("accountmanager")
+        assert sampleAccountManagerId
     }
 
     def getAccessToken() {
@@ -78,16 +89,13 @@ class ContactAndNewDealSpec extends Specification {
     }
 
     def "should create deal if the newly created contact is a company and the owner of the newly created contact is a sales representative"() {
-        given:
-        def userId = getSampleUserId("salesrep")
-
         when:
         Contact sampleContact = baseClient.contacts().create([name : sampleCompanyName,
                                                               is_organization:  true,
-                                                              owner_id: userId])
+                                                              owner_id: sampleSalesRepId])
 
         then:
-        await().atMost(3, SECONDS).pollInterval(1, SECONDS).ignoreExceptions().until {
+        await().atMost(defaultTimeout, MILLISECONDS).pollInterval(defautPollInterval, MILLISECONDS).until {
             !baseClient.deals().list([contact_id: sampleContact.id]).isEmpty()
         }
         Deal sampleDeal = baseClient.deals().list([contact_id: sampleContact.id]).get(0)
@@ -102,22 +110,19 @@ class ContactAndNewDealSpec extends Specification {
                                                               is_organization:  false])
 
         then:
-        sleep(30_000)
-        baseClient.deals().list([contact_id: sampleContact.id]).isEmpty()
+        sleep(defaultTimeout)
+        !baseClient.deals().list([contact_id: sampleContact.id])
     }
 
     def "should not create deal if the owner of the newly created contact is not a sales representative"() {
-        given:
-        def userId = getSampleUserId("accountmanager")
-
         when:
         Contact sampleContact = baseClient.contacts().create([name : sampleCompanyName,
                                                               is_organization:  true,
-                                                              owner_id: userId])
+                                                              owner_id: sampleAccountManagerId])
 
         then:
-        sleep(30_000)
-        baseClient.deals().list([contact_id: sampleContact.id]).isEmpty()
+        sleep(defaultTimeout)
+        !baseClient.deals().list([contact_id: sampleContact.id])
     }
 
     def "should not create deal if the newly created contact does not have an owner"() {
@@ -126,7 +131,7 @@ class ContactAndNewDealSpec extends Specification {
                                                               is_organization:  true])
 
         then:
-        sleep(30_000)
-        baseClient.deals().list([contact_id: sampleContact.id])isEmpty()
+        sleep(defaultTimeout)
+        !baseClient.deals().list([contact_id: sampleContact.id])
     }
 }
