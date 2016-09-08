@@ -27,8 +27,8 @@ class ContactAndNewDealSpec extends Specification {
     def sampleSalesRepId
     def sampleAccountManagerId
 
-    long defaultTimeout = 30_000
-    long defautPollInterval = 1_000
+    long waitForWorkflowExecutionTimeout = 30_000
+    long awaitPollingInterval = 1_000
 
     def setup() {
         assert accessToken
@@ -36,8 +36,6 @@ class ContactAndNewDealSpec extends Specification {
         baseClient = new Client(new Configuration.Builder()
                 .accessToken(accessToken)
                 .build())
-
-        assert baseClient instanceof Client
 
         sampleSalesRepId = getSampleUserId("salesrep")
         assert sampleSalesRepId
@@ -95,7 +93,7 @@ class ContactAndNewDealSpec extends Specification {
                                                               owner_id: sampleSalesRepId])
 
         then:
-        await().atMost(defaultTimeout, MILLISECONDS).pollInterval(defautPollInterval, MILLISECONDS).until {
+        await().atMost(waitForWorkflowExecutionTimeout, MILLISECONDS).pollInterval(awaitPollingInterval, MILLISECONDS).until {
             !baseClient.deals().list([contact_id: sampleContact.id]).isEmpty()
         }
         Deal sampleDeal = baseClient.deals().list([contact_id: sampleContact.id]).get(0)
@@ -110,7 +108,7 @@ class ContactAndNewDealSpec extends Specification {
                                                               is_organization:  false])
 
         then:
-        sleep(defaultTimeout)
+        sleep(waitForWorkflowExecutionTimeout)
         !baseClient.deals().list([contact_id: sampleContact.id])
     }
 
@@ -121,7 +119,7 @@ class ContactAndNewDealSpec extends Specification {
                                                               owner_id: sampleAccountManagerId])
 
         then:
-        sleep(defaultTimeout)
+        sleep(waitForWorkflowExecutionTimeout)
         !baseClient.deals().list([contact_id: sampleContact.id])
     }
 
@@ -131,7 +129,7 @@ class ContactAndNewDealSpec extends Specification {
                                                               is_organization:  true])
 
         then:
-        sleep(defaultTimeout)
+        sleep(waitForWorkflowExecutionTimeout)
         !baseClient.deals().list([contact_id: sampleContact.id])
     }
 }
