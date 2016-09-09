@@ -4,20 +4,25 @@ import com.getbase.Client;
 import com.getbase.Configuration;
 import com.getbase.models.Contact;
 import com.getbase.models.Deal;
+import com.getbase.models.Stage;
 import com.getbase.models.User;
 import com.getbase.services.ContactsService;
 import com.getbase.services.DealsService;
 import com.getbase.services.StagesService;
+import com.getbase.services.UsersService;
 import com.getbase.sync.Sync;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.PostConstruct;
 import java.text.SimpleDateFormat;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.stream.Collectors;
 
 
 /**
@@ -27,13 +32,24 @@ import java.util.*;
 class WorkflowTask {
     private static final Logger LOG = LoggerFactory.getLogger(WorkflowTask.class);
 
-    private static final String SAMPLE_COMPANY_NAME = "Some Company Of Mine";
+    @Value("${workflow.salesrep.email.pattern}")
+    private String salesRepresentativeEmailPattern;
 
-    private final SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm:ss");
+    @Value("${workflow.accountmanager.email.pattern}")
+    private String accountManagerEmailPattern;
 
-    private static String accessToken;
+    @Value("${workflow.account.manager.name}")
+    private String favouriteAccountManagerName;
 
-    private static String deviceUuid;
+    @Value("${workflow.stage.first.name}")
+    private String firstStageName;
+
+    @Value("${workflow.stage.won.name}")
+    private String wonStageName;
+
+    @Value("${workflow.log.time.format}")
+    private String dateFormat;
+    private SimpleDateFormat logDateFormat;
 
     private final Client baseClient;
 
@@ -42,42 +58,60 @@ class WorkflowTask {
     private static Long firstStageId;
     private static Long wonStageId;
 
-    private static Long accountManagerId;
+    private static List<Long> activeStageIds;
 
     private WorkflowTask() {
-        accessToken = getAccessToken();
-        deviceUuid = getDeviceUuid();
+        String accessToken = getAccessToken();
+        String deviceUuid = getDeviceUuid();
 
         baseClient = new Client(new Configuration.Builder()
                 .accessToken(accessToken)
                 .build());
 
-        firstStageId = baseClient.stages().list(new StagesService.SearchCriteria().name("Incoming")).get(0).getId();
-        wonStageId = baseClient.stages().list(new StagesService.SearchCriteria().name("Won")).get(0).getId();
+        firstStageId = baseClient.stages().list(new StagesService.SearchCriteria().name(firstStageName)).get(0).getId();
+        wonStageId = baseClient.stages().list(new StagesService.SearchCriteria().name(wonStageName)).get(0).getId();
 
-        // FIXME - it should not be hard-coded
-        accountManagerId = baseClient.users().get(987937L).getId();
+        activeStageIds = baseClient.stages().
+                                    list(new StagesService.SearchCriteria().active(true)).
+                                    stream().
+                                    map(Stage::getId).
+                                    collect(Collectors.toList());
 
         sync = new Sync(baseClient, deviceUuid);
         sync.subscribe(Contact.class, (meta, contact) -> true).
-                subscribe(Deal.class, (meta, deal) -> true);
+                subscribe(Deal.class, (meta, deal) -> true).
+                fetch();
+    }
+
+    @PostConstruct
+    private void initializeLogDateFormat() {
+        this.logDateFormat = new SimpleDateFormat(dateFormat);
     }
 
 
+    /**
+     * Main workflow loop
+     */
     @Scheduled(fixedDelay = 5000)
+    @SuppressWarnings("squid:S1612")
     public void runWorkflow() {
-        LOG.info("Time {}", dateFormat.format(new Date()));
+        LOG.info("Time {}", logDateFormat.format(new Date()));
 
-        Contact newContact = fetchNewContact();
+        List<Contact> companies = fetchCompanies();
 
-        if (newContact != null) {
-            if (shouldNewDealBeCreated(newContact)) {
-                createNewDeal(newContact);
-            }
+        companies.forEach(c -> processDeals(c));
+    }
 
-            List<Deal> fetchedDeals = fetchAttachedDeals(newContact.getId());
-            fetchedDeals.forEach(d -> updateExistingDeal(d));
+    @SuppressWarnings("squid:S1612")
+    private void processDeals(Contact company) {
+        LOG.debug("Fetched contact=" + company);
+
+        if (shouldNewDealBeCreated(company)) {
+            createNewDeal(company);
         }
+
+        List<Deal> fetchedDeals = fetchAttachedDeals(company.getId());
+        fetchedDeals.forEach(d -> verifyExistingDeal(d));
     }
 
     private List<Deal> fetchAttachedDeals(Long contactId) {
@@ -85,27 +119,48 @@ class WorkflowTask {
         return baseClient.deals().list(new DealsService.SearchCriteria().contactId(contactId));
     }
 
-    private void updateExistingDeal(Deal deal) {
+    private void verifyExistingDeal(Deal deal) {
         if (isDealStageWon(deal)) {
-            LOG.info("Updating deal in Won stage");
-
+            LOG.info("Verifying deal in Won stage");
             LOG.debug("Deal=" + deal);
 
             Contact dealsContact = fetchExistingContact(deal.getContactId());
-            LOG.debug("Deals contact=" + dealsContact);
+            LOG.trace("Deal's contact=" + dealsContact);
 
             User contactOwner = fetchOwner(dealsContact.getOwnerId());
-            LOG.debug("Contact owner=" + contactOwner);
+            LOG.trace("Contact's owner=" + contactOwner);
 
-            if (!deal.getOwnerId().equals(contactOwner.getId())) {
-                Map<String, Object> contactAttributes = new HashMap<>();
-                contactAttributes.put("ownerId", accountManagerId);
-
-                Contact updatedContact = baseClient.contacts().update(dealsContact.getContactId(), contactAttributes);
-
-                LOG.info("Updated company=" + updatedContact);
+            if (!isContactOwnerAnAccountManager(contactOwner)) {
+                updateExistingContact(dealsContact);
             }
         }
+    }
+
+    private void updateExistingContact(Contact dealsContact) {
+        LOG.info("Updating contact's owner");
+
+        Long accountManagerId = getUserIdByName(favouriteAccountManagerName);
+
+        if (accountManagerId != null) {
+            LOG.trace("accountManagerId=" + accountManagerId);
+
+            Map<String, Object> contactAttributes = new HashMap<>();
+            contactAttributes.put("owner_id", accountManagerId);
+            Contact updatedContact = baseClient.contacts().update(dealsContact.getId(), contactAttributes);
+
+            LOG.debug("Updated contact=" + updatedContact);
+        }
+    }
+
+    private Long getUserIdByName(String name) {
+        List<User> foundUsers = baseClient.users().
+                                            list(new UsersService.SearchCriteria().name(name));
+
+        return foundUsers.isEmpty() ? null : foundUsers.get(0).getId();
+    }
+
+    private boolean isContactOwnerAnAccountManager(User user) {
+        return user.getEmail().contains(accountManagerEmailPattern);
     }
 
     private Contact fetchExistingContact(Long contactId) {
@@ -121,48 +176,57 @@ class WorkflowTask {
         LOG.info("Creating new deal");
 
         Map<String, Object> newDealAttributes = new HashMap<>();
-        newDealAttributes.put("contactId", newContact.getId());
-
+        newDealAttributes.put("contact_id", newContact.getId());
         String dealName = newContact.getName() + " " + ZonedDateTime.now().toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE);
         newDealAttributes.put("name", dealName);
-
-        newDealAttributes.put("ownerId", newContact.getOwnerId());
-        newDealAttributes.put("stageId", firstStageId);
-
+        newDealAttributes.put("owner_id", newContact.getOwnerId());
+        newDealAttributes.put("stage_id", firstStageId);
         Deal newDeal = baseClient.deals().create(newDealAttributes);
-        LOG.info("Created new deal=" + newDeal);
+
+        LOG.debug("Created new deal=" + newDeal);
     }
 
 
-    private Contact fetchNewContact() {
+    private List<Contact> fetchCompanies() {
         sync.fetch();
-        List<Contact> fetchedContacts = baseClient.contacts().list(new ContactsService.SearchCriteria().name(SAMPLE_COMPANY_NAME));
+        List<Contact> fetchedCompanies = baseClient.contacts().
+                                                    list(new ContactsService.SearchCriteria().isOrganization(true));
 
-        LOG.debug("fetched contacts=" + fetchedContacts);
-        return fetchedContacts.isEmpty() ? null : fetchedContacts.get(0);
+        LOG.debug("Fetched companies=" + fetchedCompanies);
+        return fetchedCompanies;
     }
 
     private boolean shouldNewDealBeCreated(Contact contact) {
-        Boolean isCompany = contact.getIsOrganization();
-        LOG.debug("isCompany=" + isCompany);
+        Boolean isContactACompany = contact.getIsOrganization();
+        LOG.trace("isContactACompany=" + isContactACompany);
 
         Long ownerId = contact.getOwnerId();
         User owner = fetchOwner(ownerId);
-        LOG.debug("Contact owner=" + owner);
+        LOG.trace("Contact's owner=" + owner);
 
         Long contactId = contact.getId();
-        LOG.debug("contactId=" + contactId);
+        LOG.trace("Contact's id=" + contactId);
 
-        Boolean isUserSalesRepresentative = owner.getEmail().contains("+salesrep+");
-        LOG.debug("isUserSalesRepresentative=" + isUserSalesRepresentative);
+        Boolean isUserSalesRepresentative = owner.getEmail().contains(salesRepresentativeEmailPattern);
+        LOG.trace("isUserSalesRepresentative=" + isUserSalesRepresentative);
 
-        LOG.debug("existingDealsFound=" + areExistingDealsFound(contactId));
-        return isCompany && isUserSalesRepresentative && !areExistingDealsFound(contactId);
+        LOG.trace("No deals found=" + areNoActiveDealsFound(contactId));
+
+        boolean result = isContactACompany && isUserSalesRepresentative && areNoActiveDealsFound(contactId);
+        LOG.debug("Should new deal be created=" + result);
+
+        return result;
     }
 
-    private boolean areExistingDealsFound(Long contactId) {
+    private boolean areNoActiveDealsFound(Long contactId) {
         sync.fetch();
-        return !baseClient.deals().list(new DealsService.SearchCriteria().contactId(contactId)).isEmpty();
+
+        return baseClient.deals().
+                            list(new DealsService.SearchCriteria().contactId(contactId)).
+                            stream().
+                            filter(d -> activeStageIds.contains(d.getStageId())).
+                            collect(Collectors.toList()).
+                            isEmpty();
     }
 
     private User fetchOwner(long userId) {

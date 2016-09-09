@@ -29,6 +29,7 @@ class ContactAndNewDealSpec extends Specification {
 
     long waitForWorkflowExecutionTimeout = 30_000
     long awaitPollingInterval = 1_000
+    long postDeleteTimeout = 5_000
 
     def setup() {
         assert accessToken
@@ -55,10 +56,12 @@ class ContactAndNewDealSpec extends Specification {
             def sampleDealId = baseClient.deals().list([contact_id : sampleCompanyId])[0]?.id
             if (sampleDealId) {
                 baseClient.deals().delete(sampleDealId)
+                sleep(postDeleteTimeout)
             }
         }
 
         baseClient.contacts().delete(sampleCompanyId)
+        sleep(postDeleteTimeout)
     }
 
 
