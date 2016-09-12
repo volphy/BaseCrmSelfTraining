@@ -11,8 +11,7 @@ import com.getbase.services.DealsService;
 import com.getbase.services.StagesService;
 import com.getbase.services.UsersService;
 import com.getbase.sync.Sync;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -25,14 +24,12 @@ import java.util.*;
 
 import static java.util.stream.Collectors.toList;
 
-
 /**
  * Created by Krzysztof Wilk on 06/09/16.
  */
 @Component
+@Slf4j
 class WorkflowTask {
-    private static final Logger LOG = LoggerFactory.getLogger(WorkflowTask.class);
-
     @Value("${workflow.salesrep.email.pattern}")
     private String salesRepresentativeEmailPattern;
 
@@ -94,18 +91,16 @@ class WorkflowTask {
      * Main workflow loop
      */
     @Scheduled(fixedDelay = 5000)
-    @SuppressWarnings("squid:S1612")
     public void runWorkflow() {
-        LOG.info("Time {}", logDateFormat.format(new Date()));
+        log.info("Time {}", logDateFormat.format(new Date()));
 
         List<Contact> companies = fetchCompanies();
 
         companies.forEach(this::processDeals);
     }
 
-    @SuppressWarnings("squid:S1612")
     private void processDeals(Contact company) {
-        LOG.debug("Fetched contact=" + company);
+        log.debug("Fetched contact=" + company);
 
         if (shouldNewDealBeCreated(company)) {
             createNewDeal(company);
@@ -122,14 +117,14 @@ class WorkflowTask {
 
     private void verifyExistingDeal(Deal deal) {
         if (isDealStageWon(deal)) {
-            LOG.info("Verifying deal in Won stage");
-            LOG.debug("Deal=" + deal);
+            log.info("Verifying deal in Won stage");
+            log.debug("Deal=" + deal);
 
             Contact dealsContact = fetchExistingContact(deal.getContactId());
-            LOG.trace("Deal's contact=" + dealsContact);
+            log.trace("Deal's contact=" + dealsContact);
 
             User contactOwner = fetchOwner(dealsContact.getOwnerId());
-            LOG.trace("Contact's owner=" + contactOwner);
+            log.trace("Contact's owner=" + contactOwner);
 
             if (!isContactOwnerAnAccountManager(contactOwner)) {
                 updateExistingContact(dealsContact);
@@ -138,18 +133,18 @@ class WorkflowTask {
     }
 
     private void updateExistingContact(Contact dealsContact) {
-        LOG.info("Updating contact's owner");
+        log.info("Updating contact's owner");
 
         Long accountManagerId = getUserIdByName(favouriteAccountManagerName);
 
         if (accountManagerId != null) {
-            LOG.trace("accountManagerId=" + accountManagerId);
+            log.trace("accountManagerId=" + accountManagerId);
 
             Map<String, Object> contactAttributes = new HashMap<>();
             contactAttributes.put("owner_id", accountManagerId);
             Contact updatedContact = baseClient.contacts().update(dealsContact.getId(), contactAttributes);
 
-            LOG.debug("Updated contact=" + updatedContact);
+            log.debug("Updated contact=" + updatedContact);
         }
     }
 
@@ -174,7 +169,7 @@ class WorkflowTask {
     }
 
     private void createNewDeal(Contact newContact) {
-        LOG.info("Creating new deal");
+        log.info("Creating new deal");
 
         Map<String, Object> newDealAttributes = new HashMap<>();
         newDealAttributes.put("contact_id", newContact.getId());
@@ -184,7 +179,7 @@ class WorkflowTask {
         newDealAttributes.put("stage_id", firstStageId);
         Deal newDeal = baseClient.deals().create(newDealAttributes);
 
-        LOG.debug("Created new deal=" + newDeal);
+        log.debug("Created new deal=" + newDeal);
     }
 
 
@@ -193,28 +188,28 @@ class WorkflowTask {
         List<Contact> fetchedCompanies = baseClient.contacts().
                                                     list(new ContactsService.SearchCriteria().isOrganization(true));
 
-        LOG.debug("Fetched companies=" + fetchedCompanies);
+        log.debug("Fetched companies=" + fetchedCompanies);
         return fetchedCompanies;
     }
 
     private boolean shouldNewDealBeCreated(Contact contact) {
         Boolean isContactACompany = contact.getIsOrganization();
-        LOG.trace("isContactACompany=" + isContactACompany);
+        log.trace("isContactACompany=" + isContactACompany);
 
         Long ownerId = contact.getOwnerId();
         User owner = fetchOwner(ownerId);
-        LOG.trace("Contact's owner=" + owner);
+        log.trace("Contact's owner=" + owner);
 
         Long contactId = contact.getId();
-        LOG.trace("Contact's id=" + contactId);
+        log.trace("Contact's id=" + contactId);
 
         Boolean isUserSalesRepresentative = owner.getEmail().contains(salesRepresentativeEmailPattern);
-        LOG.trace("isUserSalesRepresentative=" + isUserSalesRepresentative);
+        log.trace("isUserSalesRepresentative=" + isUserSalesRepresentative);
 
-        LOG.trace("No deals found=" + areNoActiveDealsFound(contactId));
+        log.trace("No deals found=" + areNoActiveDealsFound(contactId));
 
         boolean result = isContactACompany && isUserSalesRepresentative && areNoActiveDealsFound(contactId);
-        LOG.debug("Should new deal be created=" + result);
+        log.debug("Should new deal be created=" + result);
 
         return result;
     }
