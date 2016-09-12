@@ -90,12 +90,12 @@ class ContactAndNewDealSpec extends Specification {
     }
 
     def "should create deal if the newly created contact is a company and the owner of the newly created contact is a sales representative"() {
-        when:
+        when: "new contact that is a company owned by a sales rep is created"
         Contact sampleContact = baseClient.contacts().create([name : sampleCompanyName,
                                                               is_organization:  true,
                                                               owner_id: sampleSalesRepId])
 
-        then:
+        then: "new deal at the first stage of the pipeline for this company is created"
         await().atMost(waitForWorkflowExecutionTimeout, MILLISECONDS).pollInterval(awaitPollingInterval, MILLISECONDS).until {
             !baseClient.deals().list([contact_id: sampleContact.id]).isEmpty()
         }
@@ -106,32 +106,32 @@ class ContactAndNewDealSpec extends Specification {
     }
 
     def "should not create deal if the newly created contact is not a company"() {
-        when:
+        when: "new contact that is not a company is created"
         Contact sampleContact = baseClient.contacts().create([name : sampleCompanyName,
                                                               is_organization:  false])
 
-        then:
+        then: "no new deal is created"
         sleep(waitForWorkflowExecutionTimeout)
         !baseClient.deals().list([contact_id: sampleContact.id])
     }
 
     def "should not create deal if the owner of the newly created contact is not a sales representative"() {
-        when:
+        when: "new contact that is a company that is not owned by a sales rep is created"
         Contact sampleContact = baseClient.contacts().create([name : sampleCompanyName,
                                                               is_organization:  true,
                                                               owner_id: sampleAccountManagerId])
 
-        then:
+        then: "no new deal is created"
         sleep(waitForWorkflowExecutionTimeout)
         !baseClient.deals().list([contact_id: sampleContact.id])
     }
 
     def "should not create deal if the newly created contact does not have an owner"() {
-        when:
+        when: "new contact that is a company but does not have an owner is created"
         Contact sampleContact = baseClient.contacts().create([name : sampleCompanyName,
                                                               is_organization:  true])
 
-        then:
+        then: "no new deal is created"
         sleep(waitForWorkflowExecutionTimeout)
         !baseClient.deals().list([contact_id: sampleContact.id])
     }
