@@ -2,14 +2,11 @@ package com.solidbrain;
 
 import com.getbase.Client;
 import com.getbase.Configuration;
-import com.getbase.models.Contact;
-import com.getbase.models.Deal;
-import com.getbase.models.Stage;
-import com.getbase.models.User;
-import com.getbase.services.ContactsService;
+import com.getbase.models.*;
 import com.getbase.services.DealsService;
 import com.getbase.services.StagesService;
 import com.getbase.services.UsersService;
+import com.getbase.sync.Meta;
 import com.getbase.sync.Sync;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -44,13 +41,21 @@ class WorkflowTask {
     @Value("${workflow.stage.won.name}")
     private String wonStageName;
 
+    @Value("${workflow.event.type.created.name}")
+    private String createdEventName;
+
+    @Value("${workflow.event.type.updated.name}")
+    private String updatedEventName;
+
     @Value("${workflow.log.time.format}")
     private String dateFormat;
     private DateTimeFormatter logDateFormat;
 
     private final Client baseClient;
 
-    private final Sync sync;
+    private Sync sync;
+
+    private final String deviceUuid;
 
     private static Long firstStageId;
     private static Long wonStageId;
@@ -59,14 +64,16 @@ class WorkflowTask {
 
     private WorkflowTask() {
         String accessToken = getAccessToken();
-        String deviceUuid = getDeviceUuid();
 
-        baseClient = new Client(new Configuration.Builder()
-                .accessToken(accessToken)
-                .build());
+        baseClient = new Client(new Configuration.Builder().
+                                        accessToken(accessToken).
+                                        build());
 
-        firstStageId = baseClient.stages().list(new StagesService.SearchCriteria().name(firstStageName)).get(0).getId();
-        wonStageId = baseClient.stages().list(new StagesService.SearchCriteria().name(wonStageName)).get(0).getId();
+        firstStageId = Optional.ofNullable(getFirstStageId()).
+                orElseThrow(() -> new NoSuchElementException("First (incoming) stage of the pipeline not available"));
+
+        wonStageId = Optional.ofNullable(getWonStageId()).
+                orElseThrow(() -> new NoSuchElementException("Won stage of the pipeline not available"));
 
         activeStageIds = baseClient.stages().
                                     list(new StagesService.SearchCriteria().active(true)).
@@ -74,10 +81,19 @@ class WorkflowTask {
                                     map(Stage::getId).
                                     collect(toList());
 
-        sync = new Sync(baseClient, deviceUuid);
-        sync.subscribe(Contact.class, (meta, contact) -> true).
-                subscribe(Deal.class, (meta, deal) -> true).
-                fetch();
+        deviceUuid = getDeviceUuid();
+    }
+
+    private Long getWonStageId() {
+        List<Stage> stages = baseClient.stages().
+                                        list(new StagesService.SearchCriteria().name(wonStageName));
+        return stages.isEmpty() ? null : stages.get(0).getId();
+    }
+
+    private Long getFirstStageId() {
+        List<Stage> stages = baseClient.stages().
+                                        list(new StagesService.SearchCriteria().name(firstStageName));
+        return stages.isEmpty() ? null : stages.get(0).getId();
     }
 
     @PostConstruct
@@ -91,26 +107,56 @@ class WorkflowTask {
      */
     @Scheduled(fixedDelay = 5000)
     public void runWorkflow() {
-        log.info("Time {}", logDateFormat.format(ZonedDateTime.now()));
-        List<Contact> companies = fetchCompanies();
-
-        companies.forEach(this::processDeals);
-    }
-
-    private void processDeals(Contact company) {
-        log.debug("Fetched contact={}", company);
-
-        if (shouldNewDealBeCreated(company)) {
-            createNewDeal(company);
+        if (log.isInfoEnabled()) {
+            log.info("Time {}", logDateFormat.format(ZonedDateTime.now()));
         }
 
-        List<Deal> fetchedDeals = fetchAttachedDeals(company.getId());
-        fetchedDeals.forEach(this::verifyExistingDeal);
+        sync = new Sync(baseClient, deviceUuid);
+
+        // Workaround: https://gist.github.com/michal-mally/73ea265718a0d29aac350dd81528414f
+        sync.subscribe(Account.class, (meta, account) -> true).
+                subscribe(Address.class, (meta, address) -> true).
+                subscribe(AssociatedContact.class, (meta, associatedContact) -> true).
+                subscribe(Contact.class, this::processContact).
+                subscribe(Deal.class, this::processDeal).
+                subscribe(LossReason.class, (meta, lossReason) -> true).
+                subscribe(Note.class, (meta, note) -> true).
+                subscribe(Pipeline.class, (meta, pipeline) -> true).
+                subscribe(Source.class, (meta, source) -> true).
+                subscribe(Stage.class, (meta, stage) -> true).
+                subscribe(Tag.class, (meta, tag) -> true).
+                subscribe(Task.class, (meta, task) -> true).
+                subscribe(User.class, (meta, user) -> true).
+                subscribe(Lead.class, (meta, lead) -> true).
+        fetch();
     }
 
-    private List<Deal> fetchAttachedDeals(Long contactId) {
-        sync.fetch();
-        return baseClient.deals().list(new DealsService.SearchCriteria().contactId(contactId));
+    private boolean processContact(Meta meta, Contact contact) {
+        log.trace("Current contact={}", contact);
+
+        String eventType = meta.getSync().getEventType();
+        log.trace("eventType={}", eventType);
+        if (eventType.contentEquals(createdEventName) || eventType.contentEquals(updatedEventName)) {
+            log.debug("Contact sync eventType={}", eventType);
+
+            if (shouldNewDealBeCreated(contact)) {
+                createNewDeal(contact);
+            }
+        }
+        return true;
+    }
+
+    private boolean processDeal(Meta meta, Deal deal) {
+        log.trace("Current deal={}", deal);
+
+        String eventType = meta.getSync().getEventType();
+        log.trace("eventType={}", eventType);
+        if (eventType.contentEquals(createdEventName) || eventType.contentEquals(updatedEventName)) {
+            log.debug("Deal sync eventType={}", eventType);
+
+            verifyExistingDeal(deal);
+        }
+        return true;
     }
 
     private void verifyExistingDeal(Deal deal) {
@@ -130,10 +176,11 @@ class WorkflowTask {
         }
     }
 
-    private void updateExistingContact(Contact dealsContact) {
+    private boolean updateExistingContact(Contact dealsContact) {
         log.info("Updating contact's owner");
 
-        Long accountManagerId = getUserIdByName(favouriteAccountManagerName);
+        Long accountManagerId = Optional.ofNullable(getUserIdByName(favouriteAccountManagerName)).
+                orElseThrow(() -> new NoSuchElementException("User " + favouriteAccountManagerName + " not available"));
 
         if (accountManagerId != null) {
             log.trace("accountManagerId={}", accountManagerId);
@@ -144,6 +191,8 @@ class WorkflowTask {
 
             log.debug("Updated contact={}", updatedContact);
         }
+
+        return true;
     }
 
     private Long getUserIdByName(String name) {
@@ -158,7 +207,6 @@ class WorkflowTask {
     }
 
     private Contact fetchExistingContact(Long contactId) {
-        sync.fetch();
         return baseClient.contacts().get(contactId);
     }
 
@@ -179,16 +227,6 @@ class WorkflowTask {
         Deal newDeal = baseClient.deals().create(newDealAttributes);
 
         log.debug("Created new deal={}", newDeal);
-    }
-
-
-    private List<Contact> fetchCompanies() {
-        sync.fetch();
-        List<Contact> fetchedCompanies = baseClient.contacts().
-                                                    list(new ContactsService.SearchCriteria().isOrganization(true));
-
-        log.debug("Fetched companies={}", fetchedCompanies);
-        return fetchedCompanies;
     }
 
     private boolean shouldNewDealBeCreated(Contact contact) {
@@ -214,8 +252,6 @@ class WorkflowTask {
     }
 
     private boolean areNoActiveDealsFound(Long contactId) {
-        sync.fetch();
-
         return baseClient.deals().
                             list(new DealsService.SearchCriteria().contactId(contactId)).
                             stream().
