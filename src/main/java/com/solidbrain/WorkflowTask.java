@@ -17,7 +17,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
-import java.text.SimpleDateFormat;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -47,7 +46,7 @@ class WorkflowTask {
 
     @Value("${workflow.log.time.format}")
     private String dateFormat;
-    private SimpleDateFormat logDateFormat;
+    private DateTimeFormatter logDateFormat;
 
     private final Client baseClient;
 
@@ -83,7 +82,7 @@ class WorkflowTask {
 
     @PostConstruct
     private void initializeLogDateFormat() {
-        this.logDateFormat = new SimpleDateFormat(dateFormat);
+        this.logDateFormat = DateTimeFormatter.ofPattern(dateFormat);
     }
 
 
@@ -92,8 +91,7 @@ class WorkflowTask {
      */
     @Scheduled(fixedDelay = 5000)
     public void runWorkflow() {
-        log.info("Time {}", logDateFormat.format(new Date()));
-
+        log.info("Time {}", logDateFormat.format(ZonedDateTime.now()));
         List<Contact> companies = fetchCompanies();
 
         companies.forEach(this::processDeals);
