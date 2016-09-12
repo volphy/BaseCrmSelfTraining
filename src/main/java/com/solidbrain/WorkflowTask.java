@@ -22,7 +22,8 @@ import java.text.SimpleDateFormat;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.stream.Collectors;
+
+import static java.util.stream.Collectors.toList;
 
 
 /**
@@ -75,7 +76,7 @@ class WorkflowTask {
                                     list(new StagesService.SearchCriteria().active(true)).
                                     stream().
                                     map(Stage::getId).
-                                    collect(Collectors.toList());
+                                    collect(toList());
 
         sync = new Sync(baseClient, deviceUuid);
         sync.subscribe(Contact.class, (meta, contact) -> true).
@@ -99,7 +100,7 @@ class WorkflowTask {
 
         List<Contact> companies = fetchCompanies();
 
-        companies.forEach(c -> processDeals(c));
+        companies.forEach(this::processDeals);
     }
 
     @SuppressWarnings("squid:S1612")
@@ -111,7 +112,7 @@ class WorkflowTask {
         }
 
         List<Deal> fetchedDeals = fetchAttachedDeals(company.getId());
-        fetchedDeals.forEach(d -> verifyExistingDeal(d));
+        fetchedDeals.forEach(this::verifyExistingDeal);
     }
 
     private List<Deal> fetchAttachedDeals(Long contactId) {
@@ -225,7 +226,7 @@ class WorkflowTask {
                             list(new DealsService.SearchCriteria().contactId(contactId)).
                             stream().
                             filter(d -> activeStageIds.contains(d.getStageId())).
-                            collect(Collectors.toList()).
+                            collect(toList()).
                             isEmpty();
     }
 
