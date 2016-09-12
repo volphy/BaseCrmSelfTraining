@@ -231,11 +231,11 @@ class WorkflowTask {
 
     private String getAccessToken() {
         return Optional.ofNullable(System.getProperty("BASE_CRM_TOKEN", System.getenv("BASE_CRM_TOKEN"))).
-                orElse("");
+                orElseThrow(() -> new IllegalStateException("Missing Base CRM OAuth2 token"));
     }
 
     private String getDeviceUuid() {
         return Optional.ofNullable(System.getProperty("DEVICE_UUID", System.getenv("DEVICE_UUID"))).
-                orElse("");
+                orElseThrow(() -> new IllegalStateException("Missing Base CRM device uuid"));
     }
 }
