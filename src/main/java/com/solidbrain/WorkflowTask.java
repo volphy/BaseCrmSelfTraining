@@ -57,10 +57,10 @@ class WorkflowTask {
 
     private final String deviceUuid;
 
-    private Long firstStageId;
-    private Long wonStageId;
+    private final Long firstStageId;
+    private final Long wonStageId;
 
-    private List<Long> activeStageIds;
+    private final List<Long> activeStageIds;
 
     private WorkflowTask() {
         String accessToken = getAccessToken();
