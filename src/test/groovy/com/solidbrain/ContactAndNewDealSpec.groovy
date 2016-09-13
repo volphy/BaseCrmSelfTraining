@@ -61,11 +61,11 @@ class ContactAndNewDealSpec extends Specification {
                     baseClient.deals().list([contact_id : sampleCompanyId]).isEmpty()
                 }
             }
-        }
 
-        baseClient.contacts().delete(sampleCompanyId)
-        await().atMost(postDeleteTimeout, MILLISECONDS).pollInterval(1, SECONDS).until {
-            baseClient.contacts().list([name : sampleCompanyName]).isEmpty()
+            baseClient.contacts().delete(sampleCompanyId)
+            await().atMost(postDeleteTimeout, MILLISECONDS).pollInterval(1, SECONDS).until {
+                baseClient.contacts().list([name : sampleCompanyName]).isEmpty()
+            }
         }
     }
 
