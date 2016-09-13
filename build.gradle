@@ -37,7 +37,7 @@ repositories {
 
 dependencies {
 	compile 'org.springframework.boot:spring-boot-starter-web'
-	compile 'com.getbase:basecrm-java:1.4.3'
+	compile 'com.getbase:basecrm-java:1.4.4'
 	compile 'org.projectlombok:lombok:1.16.10'
 
 	testCompile 'org.spockframework:spock-spring:1.0-groovy-2.4'
