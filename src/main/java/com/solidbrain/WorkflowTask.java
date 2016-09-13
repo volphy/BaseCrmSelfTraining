@@ -183,16 +183,14 @@ class WorkflowTask {
         Long accountManagerId = Optional.ofNullable(getUserIdByName(favouriteAccountManagerName))
                 .orElseThrow(() -> new NoSuchElementException("User " + favouriteAccountManagerName + " not available"));
 
-        if (accountManagerId != null) {
-            log.trace("accountManagerId={}", accountManagerId);
+        log.trace("accountManagerId={}", accountManagerId);
 
-            Map<String, Object> contactAttributes = new HashMap<>();
-            contactAttributes.put("owner_id", accountManagerId);
-            Contact updatedContact = baseClient.contacts()
+        Map<String, Object> contactAttributes = new HashMap<>();
+        contactAttributes.put("owner_id", accountManagerId);
+        Contact updatedContact = baseClient.contacts()
                                         .update(dealsContact.getId(), contactAttributes);
 
-            log.debug("Updated contact={}", updatedContact);
-        }
+        log.debug("Updated contact={}", updatedContact);
 
         return true;
     }
