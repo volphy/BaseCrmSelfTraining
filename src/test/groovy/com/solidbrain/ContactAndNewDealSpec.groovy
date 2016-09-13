@@ -13,6 +13,7 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS
+import static java.util.concurrent.TimeUnit.SECONDS
 import static org.awaitility.Awaitility.await
 
 
@@ -29,7 +30,7 @@ class ContactAndNewDealSpec extends Specification {
 
     long waitForWorkflowExecutionTimeout = 30_000
     long awaitPollingInterval = 1_000
-    long postDeleteTimeout = 5_000
+    long postDeleteTimeout = 60_000
 
     def setup() {
         assert accessToken
@@ -53,15 +54,19 @@ class ContactAndNewDealSpec extends Specification {
         def sampleCompanyId = baseClient.contacts().list([name : sampleCompanyName])[0]?.id
 
         if (sampleCompanyId) {
-            def sampleDealId = baseClient.deals().list([contact_id : sampleCompanyId])[0]?.id
-            if (sampleDealId) {
-                baseClient.deals().delete(sampleDealId)
-                sleep(postDeleteTimeout)
+            def dealIds = baseClient.deals().list([contact_id : sampleCompanyId])*.id
+            if (dealIds) {
+                dealIds.each { id -> baseClient.deals().delete(id) }
+                await().atMost(postDeleteTimeout, MILLISECONDS).pollInterval(1, SECONDS).until {
+                    baseClient.deals().list([contact_id : sampleCompanyId]).isEmpty()
+                }
             }
         }
 
         baseClient.contacts().delete(sampleCompanyId)
-        sleep(postDeleteTimeout)
+        await().atMost(postDeleteTimeout, MILLISECONDS).pollInterval(1, SECONDS).until {
+            baseClient.contacts().list([name : sampleCompanyName]).isEmpty()
+        }
     }
 
 
