@@ -65,9 +65,9 @@ class WorkflowTask {
     private WorkflowTask() {
         String accessToken = getAccessToken();
 
-        baseClient = new Client(new Configuration.Builder().
-                                        accessToken(accessToken).
-                                        build());
+        baseClient = new Client(new Configuration.Builder()
+                                        .accessToken(accessToken)
+                                        .build());
 
         firstStageId = Optional.ofNullable(getFirstStageId()).
                 orElseThrow(() -> new NoSuchElementException("First (incoming) stage of the pipeline not available"));
@@ -75,24 +75,24 @@ class WorkflowTask {
         wonStageId = Optional.ofNullable(getWonStageId()).
                 orElseThrow(() -> new NoSuchElementException("Won stage of the pipeline not available"));
 
-        activeStageIds = baseClient.stages().
-                                    list(new StagesService.SearchCriteria().active(true)).
-                                    stream().
-                                    map(Stage::getId).
-                                    collect(toList());
+        activeStageIds = baseClient.stages()
+                                    .list(new StagesService.SearchCriteria().active(true))
+                                    .stream()
+                                    .map(Stage::getId)
+                                    .collect(toList());
 
         deviceUuid = getDeviceUuid();
     }
 
     private Long getWonStageId() {
-        List<Stage> stages = baseClient.stages().
-                                        list(new StagesService.SearchCriteria().name(wonStageName));
+        List<Stage> stages = baseClient.stages()
+                                        .list(new StagesService.SearchCriteria().name(wonStageName));
         return stages.isEmpty() ? null : stages.get(0).getId();
     }
 
     private Long getFirstStageId() {
-        List<Stage> stages = baseClient.stages().
-                                        list(new StagesService.SearchCriteria().name(firstStageName));
+        List<Stage> stages = baseClient.stages()
+                                        .list(new StagesService.SearchCriteria().name(firstStageName));
         return stages.isEmpty() ? null : stages.get(0).getId();
     }
 
@@ -114,21 +114,21 @@ class WorkflowTask {
         sync = new Sync(baseClient, deviceUuid);
 
         // Workaround: https://gist.github.com/michal-mally/73ea265718a0d29aac350dd81528414f
-        sync.subscribe(Account.class, (meta, account) -> true).
-                subscribe(Address.class, (meta, address) -> true).
-                subscribe(AssociatedContact.class, (meta, associatedContact) -> true).
-                subscribe(Contact.class, this::processContact).
-                subscribe(Deal.class, this::processDeal).
-                subscribe(LossReason.class, (meta, lossReason) -> true).
-                subscribe(Note.class, (meta, note) -> true).
-                subscribe(Pipeline.class, (meta, pipeline) -> true).
-                subscribe(Source.class, (meta, source) -> true).
-                subscribe(Stage.class, (meta, stage) -> true).
-                subscribe(Tag.class, (meta, tag) -> true).
-                subscribe(Task.class, (meta, task) -> true).
-                subscribe(User.class, (meta, user) -> true).
-                subscribe(Lead.class, (meta, lead) -> true).
-        fetch();
+        sync.subscribe(Account.class, (meta, account) -> true)
+                .subscribe(Address.class, (meta, address) -> true)
+                .subscribe(AssociatedContact.class, (meta, associatedContact) -> true)
+                .subscribe(Contact.class, this::processContact)
+                .subscribe(Deal.class, this::processDeal)
+                .subscribe(LossReason.class, (meta, lossReason) -> true)
+                .subscribe(Note.class, (meta, note) -> true)
+                .subscribe(Pipeline.class, (meta, pipeline) -> true)
+                .subscribe(Source.class, (meta, source) -> true)
+                .subscribe(Stage.class, (meta, stage) -> true)
+                .subscribe(Tag.class, (meta, tag) -> true)
+                .subscribe(Task.class, (meta, task) -> true)
+                .subscribe(User.class, (meta, user) -> true)
+                .subscribe(Lead.class, (meta, lead) -> true)
+                .fetch();
     }
 
     private boolean processContact(Meta meta, Contact contact) {
@@ -179,15 +179,16 @@ class WorkflowTask {
     private boolean updateExistingContact(Contact dealsContact) {
         log.info("Updating contact's owner");
 
-        Long accountManagerId = Optional.ofNullable(getUserIdByName(favouriteAccountManagerName)).
-                orElseThrow(() -> new NoSuchElementException("User " + favouriteAccountManagerName + " not available"));
+        Long accountManagerId = Optional.ofNullable(getUserIdByName(favouriteAccountManagerName))
+                .orElseThrow(() -> new NoSuchElementException("User " + favouriteAccountManagerName + " not available"));
 
         if (accountManagerId != null) {
             log.trace("accountManagerId={}", accountManagerId);
 
             Map<String, Object> contactAttributes = new HashMap<>();
             contactAttributes.put("owner_id", accountManagerId);
-            Contact updatedContact = baseClient.contacts().update(dealsContact.getId(), contactAttributes);
+            Contact updatedContact = baseClient.contacts()
+                                        .update(dealsContact.getId(), contactAttributes);
 
             log.debug("Updated contact={}", updatedContact);
         }
@@ -196,22 +197,25 @@ class WorkflowTask {
     }
 
     private Long getUserIdByName(String name) {
-        List<User> foundUsers = baseClient.users().
-                                            list(new UsersService.SearchCriteria().name(name));
+        List<User> foundUsers = baseClient.users()
+                                    .list(new UsersService.SearchCriteria().name(name));
 
         return foundUsers.isEmpty() ? null : foundUsers.get(0).getId();
     }
 
     private boolean isContactOwnerAnAccountManager(User user) {
-        return user.getEmail().contains(accountManagerEmailPattern);
+        return user.getEmail()
+                .contains(accountManagerEmailPattern);
     }
 
     private Contact fetchExistingContact(Long contactId) {
-        return baseClient.contacts().get(contactId);
+        return baseClient.contacts()
+                .get(contactId);
     }
 
     private boolean isDealStageWon(Deal deal) {
-        return deal.getStageId().equals(wonStageId);
+        return deal.getStageId()
+                .equals(wonStageId);
     }
 
     private void createNewDeal(Contact newContact) {
@@ -219,12 +223,15 @@ class WorkflowTask {
 
         Map<String, Object> newDealAttributes = new HashMap<>();
         newDealAttributes.put("contact_id", newContact.getId());
-        String dealName = newContact.getName() + " " + ZonedDateTime.now().toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE);
+        String dealName = newContact.getName() + " " + ZonedDateTime.now()
+                                                            .toLocalDate()
+                                                            .format(DateTimeFormatter.ISO_LOCAL_DATE);
         newDealAttributes.put("name", dealName);
         newDealAttributes.put("owner_id", newContact.getOwnerId());
         newDealAttributes.put("stage_id", firstStageId);
 
-        Deal newDeal = baseClient.deals().create(newDealAttributes);
+        Deal newDeal = baseClient.deals()
+                            .create(newDealAttributes);
 
         log.debug("Created new deal={}", newDeal);
     }
@@ -240,7 +247,8 @@ class WorkflowTask {
         Long contactId = contact.getId();
         log.trace("Contact's id={}", contactId);
 
-        Boolean isUserSalesRepresentative = owner.getEmail().contains(salesRepresentativeEmailPattern);
+        Boolean isUserSalesRepresentative = owner.getEmail()
+                                                    .contains(salesRepresentativeEmailPattern);
         log.trace("isUserSalesRepresentative={}", isUserSalesRepresentative);
 
         log.trace("No deals found={}", areNoActiveDealsFound(contactId));
@@ -252,16 +260,17 @@ class WorkflowTask {
     }
 
     private boolean areNoActiveDealsFound(Long contactId) {
-        return baseClient.deals().
-                            list(new DealsService.SearchCriteria().contactId(contactId)).
-                            stream().
-                            filter(d -> activeStageIds.contains(d.getStageId())).
-                            collect(toList()).
-                            isEmpty();
+        return baseClient.deals()
+                            .list(new DealsService.SearchCriteria().contactId(contactId))
+                            .stream()
+                            .filter(d -> activeStageIds.contains(d.getStageId()))
+                            .collect(toList())
+                            .isEmpty();
     }
 
     private User fetchOwner(long userId) {
-        return baseClient.users().get(userId);
+        return baseClient.users()
+                    .get(userId);
     }
 
     private String getAccessToken() {
