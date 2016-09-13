@@ -69,11 +69,8 @@ class WorkflowTask {
                                         .accessToken(accessToken)
                                         .build());
 
-        firstStageId = Optional.ofNullable(getFirstStageId()).
-                orElseThrow(() -> new NoSuchElementException("First (incoming) stage of the pipeline not available"));
-
-        wonStageId = Optional.ofNullable(getWonStageId()).
-                orElseThrow(() -> new NoSuchElementException("Won stage of the pipeline not available"));
+        firstStageId = getFirstStage().getId();
+        wonStageId = getWonStage().getId();
 
         activeStageIds = baseClient.stages()
                                     .list(new StagesService.SearchCriteria().active(true))
@@ -84,16 +81,20 @@ class WorkflowTask {
         deviceUuid = getDeviceUuid();
     }
 
-    private Long getWonStageId() {
-        List<Stage> stages = baseClient.stages()
-                                        .list(new StagesService.SearchCriteria().name(wonStageName));
-        return stages.isEmpty() ? null : stages.get(0).getId();
+    private Stage getWonStage() {
+        return baseClient.stages()
+                .list(new StagesService.SearchCriteria().name(wonStageName))
+                .stream()
+                .findFirst()
+                .orElseThrow(() -> new NoSuchElementException("Won stage of the pipeline not available"));
     }
 
-    private Long getFirstStageId() {
-        List<Stage> stages = baseClient.stages()
-                                        .list(new StagesService.SearchCriteria().name(firstStageName));
-        return stages.isEmpty() ? null : stages.get(0).getId();
+    private Stage getFirstStage() {
+        return baseClient.stages()
+                .list(new StagesService.SearchCriteria().name(firstStageName))
+                .stream()
+                .findFirst()
+                .orElseThrow(() -> new NoSuchElementException("First (incoming) stage of the pipeline not available"));
     }
 
     @PostConstruct
