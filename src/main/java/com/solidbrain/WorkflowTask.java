@@ -163,7 +163,7 @@ class WorkflowTask {
     private boolean updateExistingContact(final Contact dealsContact) {
         log.info("Updating contact's owner");
 
-        Long accountManagerId = Optional.ofNullable(getUserIdByName(favouriteAccountManagerName))
+        Long accountManagerId = Optional.ofNullable(getUserByName(favouriteAccountManagerName).getId())
                 .orElseThrow(() -> new NoSuchElementException("User " + favouriteAccountManagerName + " not available"));
 
         log.trace("accountManagerId={}", accountManagerId);
@@ -178,11 +178,11 @@ class WorkflowTask {
         return true;
     }
 
-    private Long getUserIdByName(final String name) {
+    private User getUserByName(final String name) {
         List<User> foundUsers = baseClient.users()
                                     .list(new UsersService.SearchCriteria().name(name));
 
-        return foundUsers.isEmpty() ? null : foundUsers.get(0).getId();
+        return foundUsers.isEmpty() ? null : foundUsers.get(0);
     }
 
     private boolean isContactOwnerAnAccountManager(final User user) {
