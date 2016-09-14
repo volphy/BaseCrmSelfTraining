@@ -48,8 +48,6 @@ class WorkflowTask {
 
     private final Client baseClient;
 
-    private Sync sync;
-
     private final String deviceUuid;
 
     private final Long firstStageId;
@@ -100,7 +98,7 @@ class WorkflowTask {
     public void runWorkflow() {
         log.info("Starting workflow run");
 
-        sync = new Sync(baseClient, deviceUuid);
+        Sync sync = new Sync(baseClient, deviceUuid);
 
         // Workaround: https://gist.github.com/michal-mally/73ea265718a0d29aac350dd81528414f
         sync.subscribe(Account.class, (meta, account) -> true)
