@@ -72,16 +72,18 @@ class WorkflowTask {
 
     private Stage getWonStage() {
         return baseClient.stages()
-                .list(new StagesService.SearchCriteria().name("won"))
+                .list(new StagesService.SearchCriteria().active(false))
                 .stream()
+                .filter(s -> s.getCategory().contentEquals("won"))
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Won stage of the pipeline not available"));
+                .orElseThrow(() -> new IllegalStateException("Won stage of the pipeline not available."));
     }
 
     private Stage getFirstStage() {
         return baseClient.stages()
-                .list(new StagesService.SearchCriteria().name(FIRST_STAGE_NAME))
+                .list(new StagesService.SearchCriteria().active(true))
                 .stream()
+                .filter(s -> s.getPosition().equals(1L))
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("First stage of the pipeline not available"));
     }
