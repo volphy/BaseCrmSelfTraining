@@ -75,7 +75,7 @@ class WorkflowTask {
                 .list(new StagesService.SearchCriteria().name("won"))
                 .stream()
                 .findFirst()
-                .orElseThrow(() -> new NoSuchElementException("Won stage of the pipeline not available"));
+                .orElseThrow(() -> new IllegalStateException("Won stage of the pipeline not available"));
     }
 
     private Stage getFirstStage() {
@@ -83,7 +83,7 @@ class WorkflowTask {
                 .list(new StagesService.SearchCriteria().name(FIRST_STAGE_NAME))
                 .stream()
                 .findFirst()
-                .orElseThrow(() -> new NoSuchElementException("First (incoming) stage of the pipeline not available"));
+                .orElseThrow(() -> new IllegalStateException("First stage of the pipeline not available"));
     }
 
 
