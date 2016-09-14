@@ -9,6 +9,7 @@ import com.getbase.services.UsersService;
 import com.getbase.sync.Meta;
 import com.getbase.sync.Sync;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -25,26 +26,13 @@ import static java.util.stream.Collectors.toList;
 @Component
 @Slf4j
 class WorkflowTask {
-    @Value("${workflow.salesrep.email.pattern}")
     private String salesRepresentativeEmailPattern;
 
-    @Value("${workflow.accountmanager.email.pattern}")
     private String accountManagerEmailPattern;
 
-    @Value("${workflow.account.manager.name}")
     private String favouriteAccountManagerName;
 
-    @Value("${workflow.stage.first.name}")
-    private String firstStageName;
-
-    @Value("${workflow.stage.won.name}")
-    private String wonStageName;
-
-    @Value("${workflow.event.type.created.name}")
-    private String createdEventName;
-
-    @Value("${workflow.event.type.updated.name}")
-    private String updatedEventName;
+    private final static String FIRST_STAGE_NAME = "incoming";
 
     private final Client baseClient;
 
@@ -55,7 +43,15 @@ class WorkflowTask {
 
     private final List<Long> activeStageIds;
 
-    private WorkflowTask() {
+    @Autowired
+    public WorkflowTask(@Value("${workflow.salesrep.email.pattern}") String salesRepresentativeEmailPattern,
+                        @Value("${workflow.accountmanager.email.pattern}") String accountManagerEmailPattern,
+                        @Value("${workflow.account.manager.name}") String favouriteAccountManagerName) {
+
+        this.salesRepresentativeEmailPattern = salesRepresentativeEmailPattern;
+        this.accountManagerEmailPattern = accountManagerEmailPattern;
+        this.favouriteAccountManagerName = favouriteAccountManagerName;
+
         String accessToken = getAccessToken();
 
         baseClient = new Client(new Configuration.Builder()
@@ -76,7 +72,7 @@ class WorkflowTask {
 
     private Stage getWonStage() {
         return baseClient.stages()
-                .list(new StagesService.SearchCriteria().name(wonStageName))
+                .list(new StagesService.SearchCriteria().name("won"))
                 .stream()
                 .findFirst()
                 .orElseThrow(() -> new NoSuchElementException("Won stage of the pipeline not available"));
@@ -84,7 +80,7 @@ class WorkflowTask {
 
     private Stage getFirstStage() {
         return baseClient.stages()
-                .list(new StagesService.SearchCriteria().name(firstStageName))
+                .list(new StagesService.SearchCriteria().name(FIRST_STAGE_NAME))
                 .stream()
                 .findFirst()
                 .orElseThrow(() -> new NoSuchElementException("First (incoming) stage of the pipeline not available"));
@@ -123,7 +119,7 @@ class WorkflowTask {
 
         String eventType = meta.getSync().getEventType();
         log.trace("eventType={}", eventType);
-        if (eventType.contentEquals(createdEventName) || eventType.contentEquals(updatedEventName)) {
+        if (eventType.contentEquals("created") || eventType.contentEquals("updated")) {
             log.debug("Contact sync eventType={}", eventType);
 
             if (shouldNewDealBeCreated(contact)) {
@@ -138,7 +134,7 @@ class WorkflowTask {
 
         String eventType = meta.getSync().getEventType();
         log.trace("eventType={}", eventType);
-        if (eventType.contentEquals(createdEventName) || eventType.contentEquals(updatedEventName)) {
+        if (eventType.contentEquals("created") || eventType.contentEquals("updated")) {
             log.debug("Deal sync eventType={}", eventType);
 
             verifyExistingDeal(deal);
@@ -147,9 +143,10 @@ class WorkflowTask {
     }
 
     private void verifyExistingDeal(Deal deal) {
+        log.trace("Current deal={}", deal);
+
         if (isDealStageWon(deal)) {
             log.info("Verifying deal in Won stage");
-            log.debug("Deal={}", deal);
 
             Contact dealsContact = fetchExistingContact(deal.getContactId());
             log.trace("Deal's contact={}", dealsContact);
