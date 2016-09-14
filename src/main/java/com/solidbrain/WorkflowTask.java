@@ -13,7 +13,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import javax.annotation.PostConstruct;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -46,10 +45,6 @@ class WorkflowTask {
 
     @Value("${workflow.event.type.updated.name}")
     private String updatedEventName;
-
-    @Value("${workflow.log.time.format}")
-    private String dateFormat;
-    private DateTimeFormatter logDateFormat;
 
     private final Client baseClient;
 
@@ -97,20 +92,13 @@ class WorkflowTask {
                 .orElseThrow(() -> new NoSuchElementException("First (incoming) stage of the pipeline not available"));
     }
 
-    @PostConstruct
-    private void initializeLogDateFormat() {
-        this.logDateFormat = DateTimeFormatter.ofPattern(dateFormat);
-    }
-
 
     /**
      * Main workflow loop
      */
     @Scheduled(fixedDelay = 5000)
     public void runWorkflow() {
-        if (log.isInfoEnabled()) {
-            log.info("Time {}", logDateFormat.format(ZonedDateTime.now()));
-        }
+        log.info("Starting workflow run");
 
         sync = new Sync(baseClient, deviceUuid);
 
