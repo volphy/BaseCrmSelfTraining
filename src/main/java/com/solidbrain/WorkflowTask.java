@@ -38,8 +38,8 @@ class WorkflowTask {
 
     private final String deviceUuid;
 
-    private final Long firstStageId;
-    private final Long wonStageId;
+    private final long firstStageId;
+    private final long wonStageId;
 
     private final List<Long> activeStageIds;
 
@@ -219,17 +219,17 @@ class WorkflowTask {
     }
 
     private boolean shouldNewDealBeCreated(final Contact contact) {
-        Boolean isContactACompany = contact.getIsOrganization();
+        boolean isContactACompany = contact.getIsOrganization();
         log.trace("isContactACompany={}", isContactACompany);
 
-        Long ownerId = contact.getOwnerId();
+        long ownerId = contact.getOwnerId();
         User owner = fetchOwner(ownerId);
         log.trace("Contact's owner={}", owner);
 
-        Long contactId = contact.getId();
+        long contactId = contact.getId();
         log.trace("Contact's id={}", contactId);
 
-        Boolean isUserSalesRepresentative = owner.getEmail()
+        boolean isUserSalesRepresentative = owner.getEmail()
                                                     .contains(salesRepresentativeEmailPattern);
         log.trace("isUserSalesRepresentative={}", isUserSalesRepresentative);
 
