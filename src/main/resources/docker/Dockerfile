@@ -1,0 +1,20 @@
+FROM openjdk:8-jre
+MAINTAINER Krzysztof Wilk
+
+ARG BASE_CRM_TOKEN
+ENV BASE_CRM_TOKEN ${BASE_CRM_TOKEN}
+
+ARG DEVICE_UUID
+ENV DEVICE_UUID ${DEVICE_UUID}
+
+ENV PATH $PATH:$JAVA_HOME/bin
+ENV APPLICATION_FILE self-training-0.0.1.jar
+ENV TIMEZONE Europe/Warsaw
+
+COPY $APPLICATION_FILE /app/
+
+WORKDIR /app
+
+EXPOSE 8080
+
+CMD ["/bin/sh", "-c", "java -jar /app/self-training-0.0.1.jar"]
