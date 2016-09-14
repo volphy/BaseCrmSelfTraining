@@ -32,7 +32,7 @@ class WorkflowTask {
 
     private String favouriteAccountManagerName;
 
-    private final static String FIRST_STAGE_NAME = "incoming";
+    private static final String FIRST_STAGE_NAME = "incoming";
 
     private final Client baseClient;
 
