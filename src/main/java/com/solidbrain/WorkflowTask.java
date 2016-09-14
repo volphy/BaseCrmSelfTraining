@@ -114,7 +114,7 @@ class WorkflowTask {
                 .fetch();
     }
 
-    private boolean processContact(Meta meta, Contact contact) {
+    private boolean processContact(final Meta meta, final Contact contact) {
         log.trace("Current contact={}", contact);
 
         String eventType = meta.getSync().getEventType();
@@ -129,7 +129,7 @@ class WorkflowTask {
         return true;
     }
 
-    private boolean processDeal(Meta meta, Deal deal) {
+    private boolean processDeal(final Meta meta, final Deal deal) {
         log.trace("Current deal={}", deal);
 
         String eventType = meta.getSync().getEventType();
@@ -142,7 +142,7 @@ class WorkflowTask {
         return true;
     }
 
-    private void verifyExistingDeal(Deal deal) {
+    private void verifyExistingDeal(final Deal deal) {
         log.trace("Current deal={}", deal);
 
         if (isDealStageWon(deal)) {
@@ -160,7 +160,7 @@ class WorkflowTask {
         }
     }
 
-    private boolean updateExistingContact(Contact dealsContact) {
+    private boolean updateExistingContact(final Contact dealsContact) {
         log.info("Updating contact's owner");
 
         Long accountManagerId = Optional.ofNullable(getUserIdByName(favouriteAccountManagerName))
@@ -178,29 +178,29 @@ class WorkflowTask {
         return true;
     }
 
-    private Long getUserIdByName(String name) {
+    private Long getUserIdByName(final String name) {
         List<User> foundUsers = baseClient.users()
                                     .list(new UsersService.SearchCriteria().name(name));
 
         return foundUsers.isEmpty() ? null : foundUsers.get(0).getId();
     }
 
-    private boolean isContactOwnerAnAccountManager(User user) {
+    private boolean isContactOwnerAnAccountManager(final User user) {
         return user.getEmail()
                 .contains(accountManagerEmailPattern);
     }
 
-    private Contact fetchExistingContact(Long contactId) {
+    private Contact fetchExistingContact(final Long contactId) {
         return baseClient.contacts()
                 .get(contactId);
     }
 
-    private boolean isDealStageWon(Deal deal) {
+    private boolean isDealStageWon(final Deal deal) {
         return deal.getStageId()
                 .equals(wonStageId);
     }
 
-    private void createNewDeal(Contact newContact) {
+    private void createNewDeal(final Contact newContact) {
         log.info("Creating new deal");
 
         Map<String, Object> newDealAttributes = new HashMap<>();
@@ -218,7 +218,7 @@ class WorkflowTask {
         log.debug("Created new deal={}", newDeal);
     }
 
-    private boolean shouldNewDealBeCreated(Contact contact) {
+    private boolean shouldNewDealBeCreated(final Contact contact) {
         Boolean isContactACompany = contact.getIsOrganization();
         log.trace("isContactACompany={}", isContactACompany);
 
@@ -241,7 +241,7 @@ class WorkflowTask {
         return result;
     }
 
-    private boolean areNoActiveDealsFound(Long contactId) {
+    private boolean areNoActiveDealsFound(final Long contactId) {
         return baseClient.deals()
                             .list(new DealsService.SearchCriteria().contactId(contactId))
                             .stream()
@@ -250,7 +250,7 @@ class WorkflowTask {
                             .isEmpty();
     }
 
-    private User fetchOwner(long userId) {
+    private User fetchOwner(final long userId) {
         return baseClient.users()
                     .get(userId);
     }
