@@ -47,7 +47,7 @@ class ContactAndNewDealSpec extends Specification {
     }
 
     def getAccessToken() {
-        return System.getProperty("BASE_CRM_TOKEN", System.getenv("BASE_CRM_TOKEN"))
+        System.getProperty("BASE_CRM_TOKEN", System.getenv("BASE_CRM_TOKEN"))
     }
 
     def cleanup() {
@@ -71,15 +71,15 @@ class ContactAndNewDealSpec extends Specification {
 
 
     def getSampleCompanyName() {
-        return "Some Company Of Mine"
+        "Some Company Of Mine"
     }
 
     def getSampleDealName(String contactName) {
-        return contactName + " " + ZonedDateTime.now().toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE)
+        contactName + " " + ZonedDateTime.now().toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE)
     }
 
     def getFirstStageId(Deal deal) {
-        return baseClient.stages()
+        baseClient.stages()
                 .list(new StagesService.SearchCriteria()
                             .active(true))
                 .stream()
@@ -93,12 +93,12 @@ class ContactAndNewDealSpec extends Specification {
     def getSampleUserId(String groupName) {
         def userEmailsPattern = "\\+" + groupName + "\\+"
 
-        return baseClient.users().list(new UsersService.SearchCriteria()).
-                find { it.confirmed &&
-                        it.status == "active" &&
-                        it.role == "user" &&
-                        it.email =~ userEmailsPattern}.
-                id
+        baseClient.users().list(new UsersService.SearchCriteria())
+                .find { it.confirmed \
+                        && it.status == "active" \
+                        && it.role == "user" \
+                        && it.email =~ userEmailsPattern}
+                .id
     }
 
     def "should create deal if the newly created contact is a company and the owner of the newly created contact is a sales representative"() {
