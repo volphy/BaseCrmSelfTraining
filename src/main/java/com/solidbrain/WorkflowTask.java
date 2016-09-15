@@ -100,9 +100,9 @@ class WorkflowTask {
         log.trace("Current deal={}", deal);
 
         String eventType = meta.getSync().getEventType();
-        log.trace("eventType={}", eventType);
+        log.trace("Event type={}", eventType);
         if (eventType.contentEquals("created") || eventType.contentEquals("updated")) {
-            log.debug("Deal sync eventType={}", eventType);
+            log.debug("Deal sync event type={}", eventType);
 
             verifyExistingDeal(deal);
         }
@@ -133,7 +133,7 @@ class WorkflowTask {
         Long accountManagerId = Optional.ofNullable(getUserByName(favouriteAccountManagerName).getId())
                 .orElseThrow(() -> new NoSuchElementException("User " + favouriteAccountManagerName + " not available"));
 
-        log.trace("accountManagerId={}", accountManagerId);
+        log.trace("Account Manager's Id={}", accountManagerId);
 
         Map<String, Object> contactAttributes = new HashMap<>();
         contactAttributes.put("owner_id", accountManagerId);
@@ -188,7 +188,7 @@ class WorkflowTask {
 
     private boolean shouldNewDealBeCreated(final Contact contact) {
         boolean isContactACompany = contact.getIsOrganization();
-        log.trace("isContactACompany={}", isContactACompany);
+        log.trace("Is current contact a company={}", isContactACompany);
 
         long ownerId = contact.getOwnerId();
         User owner = fetchOwner(ownerId);
@@ -199,7 +199,7 @@ class WorkflowTask {
 
         boolean isUserSalesRepresentative = owner.getEmail()
                                                     .contains(salesRepresentativeEmailPattern);
-        log.trace("isUserSalesRepresentative={}", isUserSalesRepresentative);
+        log.trace("Is current user a sales representative={}", isUserSalesRepresentative);
 
         boolean activeDealsMissing = areNoActiveDealsFound(contactId);
         log.trace("No deals found={}", activeDealsMissing);
