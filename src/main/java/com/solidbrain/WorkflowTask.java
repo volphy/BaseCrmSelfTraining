@@ -221,9 +221,7 @@ class WorkflowTask {
         return baseClient.deals()
                             .list(new DealsService.SearchCriteria().contactId(contactId))
                             .stream()
-                            .filter(d -> activeStageIds.contains(d.getStageId()))
-                            .collect(toList())
-                            .isEmpty();
+                            .noneMatch(d -> activeStageIds.contains(d.getStageId()));
     }
 
     private User fetchOwner(final long userId) {
