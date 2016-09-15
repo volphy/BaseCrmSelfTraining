@@ -104,12 +104,12 @@ class WorkflowTask {
         if (eventType.contentEquals("created") || eventType.contentEquals("updated")) {
             log.debug("Deal sync event type={}", eventType);
 
-            verifyExistingDeal(deal);
+            processRecentlyModifiedDeal(deal);
         }
         return true;
     }
 
-    private void verifyExistingDeal(final Deal deal) {
+    private void processRecentlyModifiedDeal(final Deal deal) {
         log.trace("Current deal={}", deal);
 
         if (isDealStageWon(deal)) {
