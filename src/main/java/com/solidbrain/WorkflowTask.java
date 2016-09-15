@@ -130,13 +130,15 @@ class WorkflowTask {
     private boolean updateExistingContact(final Contact dealsContact) {
         log.info("Updating contact's owner");
 
-        Long accountManagerId = Optional.ofNullable(getUserByName(favouriteAccountManagerName).getId())
-                .orElseThrow(() -> new NoSuchElementException("User " + favouriteAccountManagerName + " not available"));
+        User accountManager = getUserByName(favouriteAccountManagerName)
+                                .orElseThrow(() -> new MissingResourceException("User not found",
+                                                                                "com.getbase.models.User",
+                                                                                favouriteAccountManagerName));
 
-        log.trace("Account Manager's Id={}", accountManagerId);
+        log.trace("Account Manager's Id={}", accountManager.getId());
 
         Map<String, Object> contactAttributes = new HashMap<>();
-        contactAttributes.put("owner_id", accountManagerId);
+        contactAttributes.put("owner_id", accountManager.getId());
         Contact updatedContact = baseClient.contacts()
                                         .update(dealsContact.getId(), contactAttributes);
 
@@ -145,11 +147,11 @@ class WorkflowTask {
         return true;
     }
 
-    private User getUserByName(final String name) {
-        List<User> foundUsers = baseClient.users()
-                                    .list(new UsersService.SearchCriteria().name(name));
-
-        return foundUsers.isEmpty() ? null : foundUsers.get(0);
+    private Optional<User> getUserByName(final String name) {
+        return baseClient.users()
+                    .list(new UsersService.SearchCriteria().name(name))
+                    .stream()
+                    .findFirst();
     }
 
     private boolean isContactOwnerAnAccountManager(final User user) {
