@@ -78,8 +78,15 @@ class ContactAndNewDealSpec extends Specification {
         return contactName + " " + ZonedDateTime.now().toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE)
     }
 
-    def getFirstStageId() {
-        return baseClient.stages().list(new StagesService.SearchCriteria().name("Incoming"))[0]?.id
+    def getFirstStageId(Deal deal) {
+        return baseClient.stages()
+                .list(new StagesService.SearchCriteria()
+                            .active(true))
+                .stream()
+                .filter { s -> s.position == 1 && deal.stageId == s.id }
+                .findFirst()
+                .get()
+                .id
     }
 
     // Find id of the first available user from a given group
@@ -107,7 +114,7 @@ class ContactAndNewDealSpec extends Specification {
         Deal sampleDeal = baseClient.deals().list([contact_id: sampleContact.id]).get(0)
         sampleDeal.name == getSampleDealName(sampleCompanyName)
         sampleDeal.ownerId == sampleContact.ownerId
-        sampleDeal.stageId == firstStageId
+        sampleDeal.stageId == getFirstStageId(sampleDeal)
     }
 
     def "should not create deal if the newly created contact is not a company"() {
@@ -125,16 +132,6 @@ class ContactAndNewDealSpec extends Specification {
         Contact sampleContact = baseClient.contacts().create([name : sampleCompanyName,
                                                               is_organization:  true,
                                                               owner_id: sampleAccountManagerId])
-
-        then: "no new deal is created"
-        sleep(waitForWorkflowExecutionTimeout)
-        !baseClient.deals().list([contact_id: sampleContact.id])
-    }
-
-    def "should not create deal if the newly created contact does not have an owner"() {
-        when: "new contact that is a company but does not have an owner is created"
-        Contact sampleContact = baseClient.contacts().create([name : sampleCompanyName,
-                                                              is_organization:  true])
 
         then: "no new deal is created"
         sleep(waitForWorkflowExecutionTimeout)

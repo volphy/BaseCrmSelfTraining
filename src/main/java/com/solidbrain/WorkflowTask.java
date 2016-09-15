@@ -32,16 +32,9 @@ class WorkflowTask {
 
     private String favouriteAccountManagerName;
 
-    private static final String FIRST_STAGE_NAME = "incoming";
-
     private final Client baseClient;
 
     private final String deviceUuid;
-
-    private final long firstStageId;
-    private final long wonStageId;
-
-    private final List<Long> activeStageIds;
 
     @Autowired
     public WorkflowTask(@Value("${workflow.salesrep.email.pattern}") String salesRepresentativeEmailPattern,
@@ -58,36 +51,8 @@ class WorkflowTask {
                                         .accessToken(accessToken)
                                         .build());
 
-        firstStageId = getFirstStage().getId();
-        wonStageId = getWonStage().getId();
-
-        activeStageIds = baseClient.stages()
-                                    .list(new StagesService.SearchCriteria().active(true))
-                                    .stream()
-                                    .map(Stage::getId)
-                                    .collect(toList());
-
         deviceUuid = getDeviceUuid();
     }
-
-    private Stage getWonStage() {
-        return baseClient.stages()
-                .list(new StagesService.SearchCriteria().active(false))
-                .stream()
-                .filter(s -> s.getCategory().contentEquals("won"))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Won stage of the pipeline not available."));
-    }
-
-    private Stage getFirstStage() {
-        return baseClient.stages()
-                .list(new StagesService.SearchCriteria().active(true))
-                .stream()
-                .filter(s -> s.getPosition().equals(1L))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("First stage of the pipeline not available"));
-    }
-
 
     /**
      * Main workflow loop
@@ -198,8 +163,10 @@ class WorkflowTask {
     }
 
     private boolean isDealStageWon(final Deal deal) {
-        return deal.getStageId()
-                .equals(wonStageId);
+        return baseClient.stages()
+                .list(new StagesService.SearchCriteria().active(false))
+                .stream()
+                .anyMatch(s -> s.getCategory().contentEquals("won") && deal.getStageId() == s.getId());
     }
 
     private void createNewDeal(final Contact newContact) {
@@ -212,7 +179,6 @@ class WorkflowTask {
                                                             .format(DateTimeFormatter.ISO_LOCAL_DATE);
         newDealAttributes.put("name", dealName);
         newDealAttributes.put("owner_id", newContact.getOwnerId());
-        newDealAttributes.put("stage_id", firstStageId);
 
         Deal newDeal = baseClient.deals()
                             .create(newDealAttributes);
@@ -235,15 +201,23 @@ class WorkflowTask {
                                                     .contains(salesRepresentativeEmailPattern);
         log.trace("isUserSalesRepresentative={}", isUserSalesRepresentative);
 
-        log.trace("No deals found={}", areNoActiveDealsFound(contactId));
+        boolean activeDealsMissing = areNoActiveDealsFound(contactId);
+        log.trace("No deals found={}", activeDealsMissing);
 
-        boolean result = isContactACompany && isUserSalesRepresentative && areNoActiveDealsFound(contactId);
+        boolean result = isContactACompany && isUserSalesRepresentative && activeDealsMissing;
         log.debug("Should new deal be created={}", result);
 
         return result;
     }
 
     private boolean areNoActiveDealsFound(final Long contactId) {
+
+        final List<Long> activeStageIds = baseClient.stages()
+                                                        .list(new StagesService.SearchCriteria().active(true))
+                                                        .stream()
+                                                        .map(Stage::getId)
+                                                        .collect(toList());
+
         return baseClient.deals()
                             .list(new DealsService.SearchCriteria().contactId(contactId))
                             .stream()
