@@ -89,9 +89,14 @@ class WorkflowTask {
         if (eventType.contentEquals("created") || eventType.contentEquals("updated")) {
             log.debug("Contact sync eventType={}", eventType);
 
-            if (shouldNewDealBeCreated(contact)) {
-                createNewDeal(contact);
+            try {
+                if (shouldNewDealBeCreated(contact)) {
+                    createNewDeal(contact);
+                }
+            } catch (RuntimeException e) {
+                log.error("Cannot process contact (id={}). Message={})", contact.getId(), e.getMessage(), e);
             }
+
         }
         return true;
     }
@@ -104,7 +109,11 @@ class WorkflowTask {
         if (eventType.contentEquals("created") || eventType.contentEquals("updated")) {
             log.debug("Deal sync event type={}", eventType);
 
-            processRecentlyModifiedDeal(deal);
+            try {
+                processRecentlyModifiedDeal(deal);
+            } catch (RuntimeException e) {
+                log.error("Cannot process deal (id={}). Message={})", deal.getId(), e.getMessage(), e);
+            }
         }
         return true;
     }
