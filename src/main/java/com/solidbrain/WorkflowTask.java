@@ -86,6 +86,7 @@ class WorkflowTask {
                 .fetch();
     }
 
+    @SuppressWarnings("squid:S1192")
     private boolean processContact(final Meta meta, final Contact contact) {
         MDC.put("contactId", contact.getId().toString());
         log.trace("Processing current contact");
@@ -145,6 +146,7 @@ class WorkflowTask {
         }
     }
 
+    @SuppressWarnings("squid:S1192")
     private boolean updateExistingContact(final Contact dealsContact) {
         MDC.put("contactId", dealsContact.getId().toString());
         log.info("Updating contact's owner");
@@ -191,6 +193,7 @@ class WorkflowTask {
                 .anyMatch(s -> s.getCategory().contentEquals("won") && deal.getStageId() == s.getId());
     }
 
+    @SuppressWarnings("squid:S1192")
     private void createNewDeal(final Contact newContact) {
         MDC.put("contactId", newContact.getId().toString());
         log.info("Creating new deal");
