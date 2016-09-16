@@ -58,7 +58,7 @@ class WorkflowTask {
     /**
      * Main workflow loop
      */
-    @Scheduled(fixedDelay = 5000)
+    @Scheduled(fixedDelayString = "${workflow.loop.interval}")
     public void runWorkflow() {
         log.info("Starting workflow run");
 
