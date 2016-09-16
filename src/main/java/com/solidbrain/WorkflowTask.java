@@ -190,18 +190,19 @@ class WorkflowTask {
     private void createNewDeal(final Contact newContact) {
         log.info("Creating new deal");
 
-        Map<String, Object> newDealAttributes = new HashMap<>();
-        newDealAttributes.put("contact_id", newContact.getId());
         String dealName = newContact.getName() + " " + ZonedDateTime.now()
                                                             .toLocalDate()
                                                             .format(DateTimeFormatter.ISO_LOCAL_DATE);
-        newDealAttributes.put("name", dealName);
-        newDealAttributes.put("owner_id", newContact.getOwnerId());
 
-        Deal newDeal = baseClient.deals()
-                            .create(newDealAttributes);
+        Deal newDeal = new Deal();
+        newDeal.setName(dealName);
+        newDeal.setContactId(newContact.getId());
+        newDeal.setOwnerId(newContact.getOwnerId());
 
-        log.debug("Created new deal={}", newDeal);
+        Deal newlyCreatedDeal = baseClient.deals()
+                                            .create(newDeal);
+
+        log.debug("Created new deal={}", newlyCreatedDeal);
     }
 
     private boolean shouldNewDealBeCreated(final Contact contact) {
