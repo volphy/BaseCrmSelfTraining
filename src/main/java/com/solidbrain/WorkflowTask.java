@@ -9,6 +9,7 @@ import com.getbase.services.UsersService;
 import com.getbase.sync.Meta;
 import com.getbase.sync.Sync;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -82,13 +83,15 @@ class WorkflowTask {
     }
 
     private boolean processContact(final Meta meta, final Contact contact) {
-        log.trace("Current contact={}", contact);
+        MDC.put("contactId", contact.getId().toString());
+        log.trace("Processing current contact");
 
         String eventType = meta.getSync().getEventType();
         log.trace("eventType={}", eventType);
         if (eventType.contentEquals("created") || eventType.contentEquals("updated")) {
             log.debug("Contact sync eventType={}", eventType);
 
+            MDC.clear();
             try {
                 if (shouldNewDealBeCreated(contact)) {
                     createNewDeal(contact);
@@ -102,7 +105,8 @@ class WorkflowTask {
     }
 
     private boolean processDeal(final Meta meta, final Deal deal) {
-        log.trace("Current deal={}", deal);
+        MDC.put("dealId", deal.getId().toString());
+        log.trace("Processing current deal");
 
         String eventType = meta.getSync().getEventType();
         log.trace("Event type={}", eventType);
@@ -119,11 +123,12 @@ class WorkflowTask {
     }
 
     private void processRecentlyModifiedDeal(final Deal deal) {
-        log.trace("Current deal={}", deal);
+        log.trace("Processing recently modified deal");
 
         if (isDealStageWon(deal)) {
             log.info("Verifying deal in Won stage");
 
+            MDC.clear();
             Contact dealsContact = fetchExistingContact(deal.getContactId());
             log.trace("Deal's contact={}", dealsContact);
 
@@ -137,7 +142,9 @@ class WorkflowTask {
     }
 
     private boolean updateExistingContact(final Contact dealsContact) {
+        MDC.put("contactId", dealsContact.getId().toString());
         log.info("Updating contact's owner");
+        MDC.clear();
 
         User accountManager = getUserByName(favouriteAccountManagerName)
                                 .orElseThrow(() -> new MissingResourceException("User not found",
