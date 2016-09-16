@@ -33,6 +33,8 @@ class WorkflowTask {
 
     private String favouriteAccountManagerName;
 
+    private String dealNameDateFormat;
+
     private final Client baseClient;
 
     private final String deviceUuid;
@@ -40,11 +42,13 @@ class WorkflowTask {
     @Autowired
     public WorkflowTask(@Value("${workflow.salesrep.email.pattern}") String salesRepresentativeEmailPattern,
                         @Value("${workflow.accountmanager.email.pattern}") String accountManagerEmailPattern,
-                        @Value("${workflow.account.manager.name}") String favouriteAccountManagerName) {
+                        @Value("${workflow.account.manager.name}") String favouriteAccountManagerName,
+                        @Value("${workflow.deal.name.date.format}") String dealNameDateFormat) {
 
         this.salesRepresentativeEmailPattern = salesRepresentativeEmailPattern;
         this.accountManagerEmailPattern = accountManagerEmailPattern;
         this.favouriteAccountManagerName = favouriteAccountManagerName;
+        this.dealNameDateFormat = dealNameDateFormat;
 
         String accessToken = getAccessToken();
 
@@ -188,11 +192,27 @@ class WorkflowTask {
     }
 
     private void createNewDeal(final Contact newContact) {
+        MDC.put("contactId", newContact.getId().toString());
         log.info("Creating new deal");
 
-        String dealName = newContact.getName() + " " + ZonedDateTime.now()
-                                                            .toLocalDate()
-                                                            .format(DateTimeFormatter.ISO_LOCAL_DATE);
+        String dateSuffix;
+        try {
+            dateSuffix = ZonedDateTime.now()
+                    .toLocalDate()
+                    .format(DateTimeFormatter.ofPattern(dealNameDateFormat));
+        } catch (IllegalArgumentException e) {
+            log.error("Illegal date format. Property workflow.deal.name.date.format={} Message={}"
+                        ,dealNameDateFormat
+                        ,e.getMessage()
+                        ,e);
+            log.error("Setting default to ISO local date format: yyyy-MM-dd");
+
+            dateSuffix = ZonedDateTime.now()
+                    .toLocalDate()
+                    .format(DateTimeFormatter.ISO_LOCAL_DATE);
+        }
+
+        String dealName = newContact.getName() + " " + dateSuffix;
 
         Deal newDeal = new Deal();
         newDeal.setName(dealName);
@@ -202,6 +222,7 @@ class WorkflowTask {
         Deal newlyCreatedDeal = baseClient.deals()
                                             .create(newDeal);
 
+        MDC.clear();
         log.debug("Created new deal={}", newlyCreatedDeal);
     }
 
