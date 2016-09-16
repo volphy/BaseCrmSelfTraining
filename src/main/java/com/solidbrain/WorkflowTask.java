@@ -198,22 +198,22 @@ class WorkflowTask {
         MDC.put("contactId", newContact.getId().toString());
         log.info("Creating new deal");
 
-        String dateSuffix;
+        DateTimeFormatter selectedFormatter;
         try {
-            dateSuffix = ZonedDateTime.now()
-                    .toLocalDate()
-                    .format(DateTimeFormatter.ofPattern(dealNameDateFormat));
+            selectedFormatter = DateTimeFormatter.ofPattern(dealNameDateFormat);
         } catch (IllegalArgumentException e) {
-            log.error("Illegal date format. Property workflow.deal.name.date.format={} Message={}"
-                        ,dealNameDateFormat
-                        ,e.getMessage()
-                        ,e);
+            log.error("Illegal date format. Property workflow.deal.name.date.format={} Message={}",
+                        dealNameDateFormat,
+                        e.getMessage(),
+                        e);
             log.error("Setting default to ISO local date format: yyyy-MM-dd");
 
-            dateSuffix = ZonedDateTime.now()
-                    .toLocalDate()
-                    .format(DateTimeFormatter.ISO_LOCAL_DATE);
+            selectedFormatter = DateTimeFormatter.ISO_LOCAL_DATE;
         }
+
+        String dateSuffix = ZonedDateTime.now()
+                .toLocalDate()
+                .format(selectedFormatter);
 
         String dealName = newContact.getName() + " " + dateSuffix;
 
