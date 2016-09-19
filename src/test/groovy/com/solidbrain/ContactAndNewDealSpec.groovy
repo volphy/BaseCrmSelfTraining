@@ -59,7 +59,7 @@ class ContactAndNewDealSpec extends Specification {
     }
 
     def getAccountManagerOnDuty() {
-        def email = System.getProperty("workflow.account.manager.on.duty")
+        def email = System.getProperty("workflow.account.manager.on.duty.email")
         assert email
 
         def accountManager = baseClient.users().list(new UsersService.SearchCriteria().email(email))[0]

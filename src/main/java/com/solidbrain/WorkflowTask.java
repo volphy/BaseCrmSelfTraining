@@ -304,7 +304,7 @@ class WorkflowTask {
     }
 
     private String getAccountManagerOnDuty() {
-        return Optional.ofNullable(System.getProperty("workflow.account.manager.on.duty"))
+        return Optional.ofNullable(System.getProperty("workflow.account.manager.on.duty.email"))
                 .map(String::trim)
                 .orElseThrow(() -> new IllegalStateException("Empty email of the manager on duty"));
     }
