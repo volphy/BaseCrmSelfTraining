@@ -33,21 +33,38 @@ class ContactAndNewDealSpec extends Specification {
     long postDeleteTimeout = 60_000
 
     def setup() {
-        assert accessToken
-
         baseClient = new Client(new Configuration.Builder()
                 .accessToken(accessToken)
                 .build())
 
-        sampleSalesRepId = getSampleUserId("salesrep")
-        assert sampleSalesRepId
-
-        sampleAccountManagerId = getSampleUserId("accountmanager")
-        assert sampleAccountManagerId
+        sampleSalesRepId = getSampleSalesRep()?.id
+        sampleAccountManagerId = getAccountManagerOnDuty()?.id
     }
 
     def getAccessToken() {
-        System.getProperty("BASE_CRM_TOKEN", System.getenv("BASE_CRM_TOKEN"))
+        def token = System.getProperty("BASE_CRM_TOKEN", System.getenv("BASE_CRM_TOKEN"))
+        assert token
+        return token
+    }
+
+    def getSampleSalesRep() {
+        def emails = System.getProperty("workflow.sales.representatives.emails")
+        assert emails
+
+        def email = emails.split(",")[0]
+
+        def salesRep = baseClient.users().list(new UsersService.SearchCriteria().email(email))[0]
+        assert salesRep
+        return salesRep
+    }
+
+    def getAccountManagerOnDuty() {
+        def email = System.getProperty("workflow.account.manager.on.duty")
+        assert email
+
+        def accountManager = baseClient.users().list(new UsersService.SearchCriteria().email(email))[0]
+        assert accountManager
+        return accountManager
     }
 
     def cleanup() {
@@ -86,18 +103,6 @@ class ContactAndNewDealSpec extends Specification {
                 .filter { s -> s.position == 1 && deal.stageId == s.id }
                 .findFirst()
                 .get()
-                .id
-    }
-
-    // Find id of the first available user from a given group
-    def getSampleUserId(String groupName) {
-        def userEmailsPattern = "\\+" + groupName + "\\+"
-
-        baseClient.users().list(new UsersService.SearchCriteria())
-                .find { it.confirmed \
-                        && it.status == "active" \
-                        && it.role == "user" \
-                        && it.email =~ userEmailsPattern}
                 .id
     }
 

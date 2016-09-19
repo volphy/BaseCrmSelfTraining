@@ -54,3 +54,7 @@ test {
 task logInfo {
 	logging.captureStandardOutput LogLevel.INFO
 }
+
+bootRun {
+	systemProperties = System.properties
+}

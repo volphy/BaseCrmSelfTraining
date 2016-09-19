@@ -9,6 +9,7 @@ import com.getbase.services.UsersService;
 import com.getbase.sync.Meta;
 import com.getbase.sync.Sync;
 import lombok.extern.slf4j.Slf4j;
+
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,11 +28,10 @@ import static java.util.stream.Collectors.toList;
 @Component
 @Slf4j
 class WorkflowTask {
-    private String salesRepresentativeEmailPattern;
+    private List<String> salesRepresentativesEmails;
+    private List<String> accountManagersEmails;
 
-    private String accountManagerEmailPattern;
-
-    private String favouriteAccountManagerName;
+    private String accountManagerOnDutyEmail;
 
     private String dealNameDateFormat;
 
@@ -40,14 +40,7 @@ class WorkflowTask {
     private final String deviceUuid;
 
     @Autowired
-    public WorkflowTask(@Value("${workflow.salesrep.email.pattern}") String salesRepresentativeEmailPattern,
-                        @Value("${workflow.accountmanager.email.pattern}") String accountManagerEmailPattern,
-                        @Value("${workflow.account.manager.name}") String favouriteAccountManagerName,
-                        @Value("${workflow.deal.name.date.format}") String dealNameDateFormat) {
-
-        this.salesRepresentativeEmailPattern = salesRepresentativeEmailPattern;
-        this.accountManagerEmailPattern = accountManagerEmailPattern;
-        this.favouriteAccountManagerName = favouriteAccountManagerName;
+    public WorkflowTask(@Value("${workflow.deal.name.date.format}") String dealNameDateFormat) {
         this.dealNameDateFormat = dealNameDateFormat;
 
         String accessToken = getAccessToken();
@@ -57,6 +50,15 @@ class WorkflowTask {
                                         .build());
 
         deviceUuid = getDeviceUuid();
+
+        accountManagersEmails = getEmailsOfAccountManagers();
+        log.debug("accountManagersEmails=" + accountManagersEmails);
+
+        accountManagerOnDutyEmail = getAccountManagerOnDuty();
+        log.debug("accountManagerOnDutyEmail=" + accountManagerOnDutyEmail);
+
+        salesRepresentativesEmails = getEmailsOfSalesRepresentatives();
+        log.debug("salesRepresentativesEmails=" + salesRepresentativesEmails);
     }
 
     /**
@@ -152,10 +154,10 @@ class WorkflowTask {
         log.info("Updating contact's owner");
         MDC.clear();
 
-        User accountManager = getUserByName(favouriteAccountManagerName)
+        User accountManager = getUserByEmail(accountManagerOnDutyEmail)
                                 .orElseThrow(() -> new MissingResourceException("User not found",
                                                                                 "com.getbase.models.User",
-                                                                                favouriteAccountManagerName));
+                                                                                accountManagerOnDutyEmail));
 
         log.trace("Account Manager's Id={}", accountManager.getId());
 
@@ -169,16 +171,15 @@ class WorkflowTask {
         return true;
     }
 
-    private Optional<User> getUserByName(final String name) {
+    private Optional<User> getUserByEmail(final String email) {
         return baseClient.users()
-                    .list(new UsersService.SearchCriteria().name(name))
+                    .list(new UsersService.SearchCriteria().email(email))
                     .stream()
                     .findFirst();
     }
 
     private boolean isContactOwnerAnAccountManager(final User user) {
-        return user.getEmail()
-                .contains(accountManagerEmailPattern);
+        return accountManagersEmails.contains(user.getEmail());
     }
 
     private Contact fetchExistingContact(final Long contactId) {
@@ -240,9 +241,11 @@ class WorkflowTask {
         long contactId = contact.getId();
         log.trace("Contact's id={}", contactId);
 
-        boolean isUserSalesRepresentative = owner.getEmail()
-                                                    .contains(salesRepresentativeEmailPattern);
-        log.trace("Is current user a sales representative={}", isUserSalesRepresentative);
+        boolean isUserSalesRepresentative = salesRepresentativesEmails
+                                                .stream()
+                                                .anyMatch(u -> u.contains(owner.getEmail()));
+
+        log.trace("Is contact's owner a sales representative={}", isUserSalesRepresentative);
 
         boolean activeDealsMissing = areNoActiveDealsFound(contactId);
         log.trace("No deals found={}", activeDealsMissing);
@@ -280,5 +283,29 @@ class WorkflowTask {
     private String getDeviceUuid() {
         return Optional.ofNullable(System.getProperty("DEVICE_UUID", System.getenv("DEVICE_UUID"))).
                 orElseThrow(() -> new IllegalStateException("Missing Base CRM device uuid"));
+    }
+
+    private List<String> getEmailsOfSalesRepresentatives() {
+        return Optional.ofNullable(System.getProperty("workflow.sales.representatives.emails"))
+                        .map(Arrays::asList)
+                        .orElseThrow(() -> new IllegalStateException("Empty list of sales representatives' emails"))
+                        .stream()
+                        .map(String::trim)
+                        .collect(toList());
+    }
+
+    private List<String> getEmailsOfAccountManagers() {
+        return Optional.ofNullable(System.getProperty("workflow.account.managers.emails"))
+                .map(Arrays::asList)
+                .orElseThrow(() -> new IllegalStateException("Empty list of account managers emails"))
+                .stream()
+                .map(String::trim)
+                .collect(toList());
+    }
+
+    private String getAccountManagerOnDuty() {
+        return Optional.ofNullable(System.getProperty("workflow.account.manager.on.duty"))
+                .map(String::trim)
+                .orElseThrow(() -> new IllegalStateException("Empty email of the manager on duty"));
     }
 }
