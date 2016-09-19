@@ -67,8 +67,8 @@ class ContactAndNewDealSpec extends Specification {
         def file = new File("src/test/resources/test.properties")
 
         file.eachLine { l -> if (l.startsWith("workflow.deal.name.date.format")) {
-            dealNameDateFormat = l.split("=")[1]
-        }
+                                    dealNameDateFormat = l.split("=")[1]
+                                }
         }
 
         assert dealNameDateFormat
