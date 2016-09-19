@@ -37,17 +37,6 @@ class ContactAndNewDealSpec extends Specification {
     long awaitPollingInterval = 1_000
     long postDeleteTimeout = 60_000
 
-    def setupSpec() {
-        def file = new File("src/test/resources/test.properties")
-
-        file.eachLine { l -> if (l.startsWith("workflow.deal.name.date.format")) {
-                                    dealNameDateFormat = l.split("=")[1]
-                            }
-        }
-
-        assert dealNameDateFormat
-    }
-
     def getAccessToken() {
         def token = System.getProperty("BASE_CRM_TOKEN", System.getenv("BASE_CRM_TOKEN"))
         assert token
@@ -72,6 +61,17 @@ class ContactAndNewDealSpec extends Specification {
         def accountManager = baseClient.users().list(new UsersService.SearchCriteria().email(email))[0]
         assert accountManager
         return accountManager
+    }
+
+    def setupSpec() {
+        def file = new File("src/test/resources/test.properties")
+
+        file.eachLine { l -> if (l.startsWith("workflow.deal.name.date.format")) {
+            dealNameDateFormat = l.split("=")[1]
+        }
+        }
+
+        assert dealNameDateFormat
     }
 
     def cleanup() {
@@ -102,17 +102,6 @@ class ContactAndNewDealSpec extends Specification {
         contactName + " " + ZonedDateTime.now().toLocalDate().format(DateTimeFormatter.ofPattern(dealNameDateFormat))
     }
 
-    def getFirstStageId(Deal deal) {
-        baseClient.stages()
-                .list(new StagesService.SearchCriteria()
-                            .active(true))
-                .stream()
-                .filter { s -> s.position == 1 && deal.stageId == s.id }
-                .findFirst()
-                .get()
-                .id
-    }
-
     def "should create deal if the newly created contact is a company and the owner of the newly created contact is a sales representative"() {
         when: "new contact that is a company owned by a sales rep is created"
         Contact sampleContact = baseClient.contacts().create([name : sampleCompanyName,
@@ -126,7 +115,17 @@ class ContactAndNewDealSpec extends Specification {
         Deal sampleDeal = baseClient.deals().list([contact_id: sampleContact.id]).get(0)
         sampleDeal.name == getSampleDealName(sampleCompanyName)
         sampleDeal.ownerId == sampleContact.ownerId
-        sampleDeal.stageId == getFirstStageId(sampleDeal)
+        sampleDeal.stageId == getFirstStage(sampleDeal)?.id
+    }
+
+    def getFirstStage(Deal deal) {
+        baseClient.stages()
+                .list(new StagesService.SearchCriteria()
+                                            .active(true))
+                .stream()
+                .filter { s -> s.position == 1 && deal.stageId == s.id }
+                .findFirst()
+                .get()
     }
 
     def "should not create deal if the newly created contact is not a company"() {
