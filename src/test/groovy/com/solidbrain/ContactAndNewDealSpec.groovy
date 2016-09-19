@@ -7,6 +7,7 @@ import com.getbase.models.Deal
 import com.getbase.services.StagesService
 import com.getbase.services.UsersService
 import groovy.util.logging.Slf4j
+import spock.lang.Shared
 import spock.lang.Specification
 
 import java.time.ZonedDateTime
@@ -23,22 +24,28 @@ import static org.awaitility.Awaitility.await
 
 @Slf4j
 class ContactAndNewDealSpec extends Specification {
-    Client baseClient
+    Client baseClient = new Client(new Configuration.Builder()
+                                                        .accessToken(accessToken)
+                                                        .build())
 
-    def sampleSalesRepId
-    def sampleAccountManagerId
+    def sampleSalesRepId = getSampleSalesRep()?.id
+    def sampleAccountManagerId = getAccountManagerOnDuty()?.id
+
+    @Shared def dealNameDateFormat
 
     long waitForWorkflowExecutionTimeout = 30_000
     long awaitPollingInterval = 1_000
     long postDeleteTimeout = 60_000
 
-    def setup() {
-        baseClient = new Client(new Configuration.Builder()
-                .accessToken(accessToken)
-                .build())
+    def setupSpec() {
+        def file = new File("src/test/resources/test.properties")
 
-        sampleSalesRepId = getSampleSalesRep()?.id
-        sampleAccountManagerId = getAccountManagerOnDuty()?.id
+        file.eachLine { l -> if (l.startsWith("workflow.deal.name.date.format")) {
+                                    dealNameDateFormat = l.split("=")[1]
+                            }
+        }
+
+        assert dealNameDateFormat
     }
 
     def getAccessToken() {
@@ -92,7 +99,7 @@ class ContactAndNewDealSpec extends Specification {
     }
 
     def getSampleDealName(String contactName) {
-        contactName + " " + ZonedDateTime.now().toLocalDate().format(DateTimeFormatter.ISO_LOCAL_DATE)
+        contactName + " " + ZonedDateTime.now().toLocalDate().format(DateTimeFormatter.ofPattern(dealNameDateFormat))
     }
 
     def getFirstStageId(Deal deal) {
