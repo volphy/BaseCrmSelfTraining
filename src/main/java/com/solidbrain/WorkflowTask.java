@@ -241,10 +241,7 @@ class WorkflowTask {
         long contactId = contact.getId();
         log.trace("Contact's id={}", contactId);
 
-        boolean isUserSalesRepresentative = salesRepresentativesEmails
-                                                .stream()
-                                                .anyMatch(u -> u.contains(owner.getEmail()));
-
+        boolean isUserSalesRepresentative = salesRepresentativesEmails.contains(owner.getEmail());
         log.trace("Is contact's owner a sales representative={}", isUserSalesRepresentative);
 
         boolean activeDealsMissing = areNoActiveDealsFound(contactId);
@@ -257,8 +254,7 @@ class WorkflowTask {
     }
 
     private boolean areNoActiveDealsFound(final Long contactId) {
-
-        final List<Long> activeStageIds = baseClient.stages()
+        List<Long> activeStageIds = baseClient.stages()
                                                         .list(new StagesService.SearchCriteria().active(true))
                                                         .stream()
                                                         .map(Stage::getId)
@@ -286,26 +282,36 @@ class WorkflowTask {
     }
 
     private List<String> getEmailsOfSalesRepresentatives() {
-        return Optional.ofNullable(System.getProperty("workflow.sales.representatives.emails"))
-                        .map(Arrays::asList)
+        String emails = System.getProperty("workflow.sales.representatives.emails",
+                                System.getenv("workflow_sales_representatives_emails"));
+        log.trace("Sales representatives emails (raw)={}", emails);
+
+        return Arrays.stream(Optional.ofNullable(emails)
                         .orElseThrow(() -> new IllegalStateException("Empty list of sales representatives' emails"))
-                        .stream()
+                        .split(","))
                         .map(String::trim)
                         .collect(toList());
     }
 
     private List<String> getEmailsOfAccountManagers() {
-        return Optional.ofNullable(System.getProperty("workflow.account.managers.emails"))
-                .map(Arrays::asList)
-                .orElseThrow(() -> new IllegalStateException("Empty list of account managers emails"))
-                .stream()
-                .map(String::trim)
-                .collect(toList());
+        String emails = System.getProperty("workflow.account.managers.emails",
+                                System.getenv("workflow_account_managers_emails"));
+        log.trace("Account managers emails (raw)={}", emails);
+
+        return Arrays.stream(Optional.ofNullable(emails)
+                        .orElseThrow(() -> new IllegalStateException("Empty list of account managers emails"))
+                        .split(","))
+                        .map(String::trim)
+                        .collect(toList());
     }
 
     private String getAccountManagerOnDuty() {
-        return Optional.ofNullable(System.getProperty("workflow.account.manager.on.duty.email"))
-                .map(String::trim)
-                .orElseThrow(() -> new IllegalStateException("Empty email of the manager on duty"));
+        String email = System.getProperty("workflow.account.manager.on.duty.email",
+                                System.getenv("workflow_account_manager_on_duty_email"));
+        log.trace("Account manager on duty email={}", email);
+
+        return Optional.ofNullable(email)
+                .orElseThrow(() -> new IllegalStateException("Empty email of the manager on duty"))
+                .trim();
     }
 }
