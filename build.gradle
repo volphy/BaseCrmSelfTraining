@@ -4,19 +4,22 @@ buildscript {
 	}
 	repositories {
 		mavenCentral()
+        jcenter()
 		maven {
 			url "https://plugins.gradle.org/m2/"
-		}
+        }
 	}
 	dependencies {
 		classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
 		classpath "org.sonarsource.scanner.gradle:sonarqube-gradle-plugin:2.1-rc3"
+		classpath 'se.transmode.gradle:gradle-docker:1.2'
 	}
 }
 
 apply plugin: 'groovy'
 apply plugin: 'spring-boot'
 apply plugin: 'org.sonarqube'
+apply plugin: 'docker'
 
 jar {
 	baseName = 'self-training'
@@ -27,13 +30,12 @@ sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
 repositories {
-	mavenCentral()
-	jcenter()
-	maven {
-		url  "http://dl.bintray.com/basecrm/maven"
-	}
-
+    mavenCentral()
+    maven {
+        url "http://dl.bintray.com/basecrm/maven"
+    }
 }
+
 
 dependencies {
 	compile 'org.springframework.boot:spring-boot-starter-web'
@@ -57,4 +59,18 @@ task logInfo {
 
 bootRun {
 	systemProperties = System.properties
+}
+
+
+task buildDocker (type: Docker, dependsOn: build) {
+    push = false
+    applicationName = jar.baseName
+    version = jar.version
+    dockerfile = file('src/main/resources/docker/Dockerfile')
+    doFirst {
+        copy {
+            from jar
+            into stageDir
+        }
+    }
 }
