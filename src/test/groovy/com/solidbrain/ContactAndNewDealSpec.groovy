@@ -4,11 +4,17 @@ import com.getbase.Client
 import com.getbase.models.Contact
 import com.getbase.Configuration
 import com.getbase.models.Deal
+import com.getbase.services.ContactsService
+import com.getbase.services.DealsService
 import com.getbase.services.StagesService
 import com.getbase.services.UsersService
 import groovy.util.logging.Slf4j
+import spock.lang.Narrative
 import spock.lang.Shared
 import spock.lang.Specification
+import spock.lang.Subject
+import spock.lang.Title
+import spock.lang.Unroll
 
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -23,15 +29,29 @@ import static org.awaitility.Awaitility.await
  */
 
 @Slf4j
+@Narrative('''Spring Boot based workflow creates new Deal if newly created Contact meets
+the following requirements:
+1. Contact is a company (organization)
+2. Contact's owner is a Sales Representative
+3. there are no active Deals assigned to this Contact
+Later that Contact is assigned to a given Account Manager (here: account manager on duty)
+if it meets the following requirements:
+1. Deal that is assigned to this Contact is Won (its stage is Won)
+2. Contact is assigned to a user who is not an Account Manager''')
+@Title("Integration test for deal created by workflow")
+@Unroll("""Create contact and deal test:
+isOrganization=#isOrganization, ownerId=#ownerId, dealName=#dealName, dealOwnerId=#dealOwnerId""")
+@Subject(Deal)
 class ContactAndNewDealSpec extends Specification {
-    Client baseClient = new Client(new Configuration.Builder()
+    @Shared Client baseClient = new Client(new Configuration.Builder()
                                                         .accessToken(accessToken)
                                                         .build())
 
-    def sampleSalesRepId = getSampleSalesRep()?.id
-    def sampleAccountManagerId = getAccountManagerOnDuty()?.id
+    @Shared def sampleSalesRepId = getSampleSalesRep()?.id
+    @Shared def sampleAccountManagerId = getAccountManagerOnDuty()?.id
+    @Shared def sampleOtherUserId = getSampleOtherUser()?.id
 
-    @Shared def dealNameDateFormat
+    static def dealNameDateFormat
 
     long waitForWorkflowExecutionTimeout = 30_000
     long awaitPollingInterval = 1_000
@@ -47,7 +67,7 @@ class ContactAndNewDealSpec extends Specification {
         def emails = System.getProperty("workflow.sales.representatives.emails")
         assert emails
 
-        def email = emails.split(",")[0]
+        def email = emails.split(",")[0].trim()
 
         def salesRep = baseClient.users().list(new UsersService.SearchCriteria().email(email))[0]
         assert salesRep
@@ -55,12 +75,30 @@ class ContactAndNewDealSpec extends Specification {
     }
 
     def getAccountManagerOnDuty() {
-        def email = System.getProperty("workflow.account.manager.on.duty.email")
+        def email = System.getProperty("workflow.account.manager.on.duty.email").trim()
         assert email
 
         def accountManager = baseClient.users().list(new UsersService.SearchCriteria().email(email))[0]
         assert accountManager
         return accountManager
+    }
+
+    def getSampleOtherUser() {
+        def emails = Arrays.asList(System.getProperty("workflow.sales.representatives.emails")
+                                            .replaceAll(" ", "")
+                                            .split(",")
+                            + System.getProperty("workflow.account.manager.on.duty.email")
+                                            .replaceAll(" ", "")
+                                            .split(","))
+
+        baseClient.users()
+                    .list(new UsersService.SearchCriteria()
+                                            .confirmed(true)
+                                            .status("active"))
+                    .stream()
+                    .filter {u -> !emails.contains(u.email)}
+                    .findFirst()
+                    .get()
     }
 
     def setupSpec() {
@@ -102,50 +140,60 @@ class ContactAndNewDealSpec extends Specification {
         contactName + " " + ZonedDateTime.now().toLocalDate().format(DateTimeFormatter.ofPattern(dealNameDateFormat))
     }
 
-    def "should create deal if the newly created contact is a company and the owner of the newly created contact is a sales representative"() {
+    def "should create deal (correct contact's attributes)"() {
         when: "new contact that is a company owned by a sales rep is created"
         Contact sampleContact = baseClient.contacts().create([name : sampleCompanyName,
-                                                              is_organization:  true,
-                                                              owner_id: sampleSalesRepId])
+                                                              is_organization:  isOrganization,
+                                                              owner_id: ownerId])
 
         then: "new deal at the first stage of the pipeline for this company is created"
         await().atMost(waitForWorkflowExecutionTimeout, MILLISECONDS).pollInterval(awaitPollingInterval, MILLISECONDS).until {
             !baseClient.deals().list([contact_id: sampleContact.id]).isEmpty()
         }
         Deal sampleDeal = baseClient.deals().list([contact_id: sampleContact.id]).get(0)
-        sampleDeal.name == getSampleDealName(sampleCompanyName)
-        sampleDeal.ownerId == sampleContact.ownerId
-        sampleDeal.stageId == getFirstStage(sampleDeal)?.id
+        sampleDeal.name == dealName
+        sampleDeal.ownerId == dealOwnerId
+        // dealStageId cannot be moved to where: because it is evaluated after test's completion
+        sampleDeal.stageId == getFirstStageId(sampleDeal)
+
+        where: "sample contact's attributes are"
+        isOrganization << [true]
+        ownerId << [sampleSalesRepId]
+        dealName << [getSampleDealName(sampleCompanyName)]
+        dealOwnerId << [sampleSalesRepId]
     }
 
-    def getFirstStage(Deal deal) {
-        baseClient.stages()
-                .list(new StagesService.SearchCriteria()
-                                            .active(true))
-                .stream()
-                .filter { s -> s.position == 1 && deal.stageId == s.id }
-                .findFirst()
-                .get()
+    def getFirstStageId(Deal deal) {
+        log.info("test deal={}", deal)
+        return deal != null ? baseClient.stages()
+                                    .list(new StagesService.SearchCriteria()
+                                                                .active(true))
+                                .stream()
+                                .filter { s -> s.position == 1 && deal.stageId == s.id }
+                                .findFirst()
+                                .get()
+                                .id : null
     }
 
-    def "should not create deal if the newly created contact is not a company"() {
-        when: "new contact that is not a company is created"
+    def "should not create deal (incorrect contact's attributes)"() {
+        when: "new contact is created"
         Contact sampleContact = baseClient.contacts().create([name : sampleCompanyName,
-                                                              is_organization:  false])
+                                                                is_organization: isOrganization,
+                                                                owner_id: ownerId])
 
-        then: "no new deal is created"
+        then: "new deal is not created"
         sleep(waitForWorkflowExecutionTimeout)
-        !baseClient.deals().list([contact_id: sampleContact.id])
-    }
+        def deal = baseClient.deals().list([contact_id: sampleContact.id])[0]
+        deal?.name == dealName
+        deal?.ownerId == dealOwnerId
+        deal?.stageId == dealStageId
 
-    def "should not create deal if the owner of the newly created contact is not a sales representative"() {
-        when: "new contact that is a company that is not owned by a sales rep is created"
-        Contact sampleContact = baseClient.contacts().create([name : sampleCompanyName,
-                                                              is_organization:  true,
-                                                              owner_id: sampleAccountManagerId])
-
-        then: "no new deal is created"
-        sleep(waitForWorkflowExecutionTimeout)
-        !baseClient.deals().list([contact_id: sampleContact.id])
+        where: "sample contact's attributes are"
+        isOrganization  | ownerId                   || dealName | dealOwnerId   | dealStageId
+        false           | sampleSalesRepId          || null     | null          | null
+        true            | sampleAccountManagerId    || null     | null          | null
+        false           | sampleAccountManagerId    || null     | null          | null
+        true            | sampleOtherUserId         || null     | null          | null
+        false           | sampleOtherUserId         || null     | null          | null
     }
 }
