@@ -85,18 +85,21 @@ class ContactAndNewDealSpec extends Specification {
         def emails = Arrays.asList(System.getProperty("workflow.sales.representatives.emails")
                                             .replaceAll(" ", "")
                                             .split(",")
-                            + System.getProperty("workflow.account.manager.on.duty.email")
+                                    + System.getProperty("workflow.account.manager.on.duty.email")
                                             .replaceAll(" ", "")
                                             .split(","))
 
-        baseClient.users()
-                    .list(new UsersService.SearchCriteria()
-                                            .confirmed(true)
-                                            .status("active"))
-                    .stream()
-                    .filter {u -> !emails.contains(u.email)}
-                    .findFirst()
-                    .get()
+        def sampleUser = baseClient.users()
+                                        .list(new UsersService.SearchCriteria()
+                                        .confirmed(true)
+                                        .status("active"))
+                                    .stream()
+                                    .filter {u -> !emails.contains(u.email)}
+                                    .findFirst()
+                                    .get()
+
+        assert sampleUser
+        return sampleUser
     }
 
     def setupSpec() {
@@ -139,6 +142,7 @@ class ContactAndNewDealSpec extends Specification {
     }
 
     def "should create deal (correct contact's attributes)"() {
+        log.debug("Testing positive path (test-to-pass)")
         when: "new contact that is a company owned by a sales rep is created"
         Contact sampleContact = baseClient.contacts().create([name : sampleCompanyName,
                                                               is_organization:  isOrganization,
@@ -148,7 +152,7 @@ class ContactAndNewDealSpec extends Specification {
         await().atMost(waitForWorkflowExecutionTimeout, MILLISECONDS).pollInterval(awaitPollingInterval, MILLISECONDS).until {
             !baseClient.deals().list([contact_id: sampleContact.id]).isEmpty()
         }
-        Deal sampleDeal = baseClient.deals().list([contact_id: sampleContact.id]).get(0)
+        Deal sampleDeal = baseClient.deals().list([contact_id: sampleContact.id])[0]
         sampleDeal.with {
             name == dealName
             ownerId == dealOwnerId
@@ -175,6 +179,7 @@ class ContactAndNewDealSpec extends Specification {
     }
 
     def "should not create deal (incorrect contact's attributes)"() {
+        log.debug("Testing negative path (tests-to-fail)")
         when: "new contact is created"
         Contact sampleContact = baseClient.contacts().create([name : sampleCompanyName,
                                                                 is_organization: isOrganization,
@@ -191,5 +196,9 @@ class ContactAndNewDealSpec extends Specification {
         false           | sampleAccountManagerId
         true            | sampleOtherUserId
         false           | sampleOtherUserId
+
+        // For the sake of @Unroll only
+        dealName = null
+        dealOwnerId = null
     }
 }
