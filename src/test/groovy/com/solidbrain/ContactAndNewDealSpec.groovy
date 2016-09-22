@@ -4,8 +4,6 @@ import com.getbase.Client
 import com.getbase.models.Contact
 import com.getbase.Configuration
 import com.getbase.models.Deal
-import com.getbase.services.ContactsService
-import com.getbase.services.DealsService
 import com.getbase.services.StagesService
 import com.getbase.services.UsersService
 import groovy.util.logging.Slf4j
@@ -151,10 +149,12 @@ class ContactAndNewDealSpec extends Specification {
             !baseClient.deals().list([contact_id: sampleContact.id]).isEmpty()
         }
         Deal sampleDeal = baseClient.deals().list([contact_id: sampleContact.id]).get(0)
-        sampleDeal.name == dealName
-        sampleDeal.ownerId == dealOwnerId
-        // dealStageId cannot be moved to where: because it is evaluated after test's completion
-        sampleDeal.stageId == getFirstStageId(sampleDeal)
+        sampleDeal.with {
+            name == dealName
+            ownerId == dealOwnerId
+            // dealStageId cannot be moved to where: because it is evaluated after test's completion
+            stageId == getFirstStageId(sampleDeal)
+        }
 
         where: "sample contact's attributes are"
         isOrganization << [true]
@@ -164,15 +164,14 @@ class ContactAndNewDealSpec extends Specification {
     }
 
     def getFirstStageId(Deal deal) {
-        log.info("test deal={}", deal)
-        return deal != null ? baseClient.stages()
-                                    .list(new StagesService.SearchCriteria()
-                                                                .active(true))
-                                .stream()
-                                .filter { s -> s.position == 1 && deal.stageId == s.id }
-                                .findFirst()
-                                .get()
-                                .id : null
+        deal == null ? null : baseClient.stages()
+                .list(new StagesService.SearchCriteria()
+                .active(true))
+                .stream()
+                .filter { s -> s.position == 1 && deal.stageId == s.id }
+                .findFirst()
+                .get()
+                .id
     }
 
     def "should not create deal (incorrect contact's attributes)"() {
@@ -183,17 +182,14 @@ class ContactAndNewDealSpec extends Specification {
 
         then: "new deal is not created"
         sleep(waitForWorkflowExecutionTimeout)
-        def deal = baseClient.deals().list([contact_id: sampleContact.id])[0]
-        deal?.name == dealName
-        deal?.ownerId == dealOwnerId
-        deal?.stageId == dealStageId
+        !baseClient.deals().list([contact_id: sampleContact.id])
 
         where: "sample contact's attributes are"
-        isOrganization  | ownerId                   || dealName | dealOwnerId   | dealStageId
-        false           | sampleSalesRepId          || null     | null          | null
-        true            | sampleAccountManagerId    || null     | null          | null
-        false           | sampleAccountManagerId    || null     | null          | null
-        true            | sampleOtherUserId         || null     | null          | null
-        false           | sampleOtherUserId         || null     | null          | null
+        isOrganization  | ownerId
+        false           | sampleSalesRepId
+        true            | sampleAccountManagerId
+        false           | sampleAccountManagerId
+        true            | sampleOtherUserId
+        false           | sampleOtherUserId
     }
 }
