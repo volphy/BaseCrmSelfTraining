@@ -288,8 +288,8 @@ class WorkflowTask {
 
         return Arrays.stream(Optional.ofNullable(emails)
                         .orElseThrow(() -> new IllegalStateException("Empty list of sales representatives' emails"))
+                        .replaceAll(" ", "")
                         .split(","))
-                        .map(String::trim)
                         .collect(toList());
     }
 
@@ -300,8 +300,8 @@ class WorkflowTask {
 
         return Arrays.stream(Optional.ofNullable(emails)
                         .orElseThrow(() -> new IllegalStateException("Empty list of account managers emails"))
+                        .replaceAll(" ", "")
                         .split(","))
-                        .map(String::trim)
                         .collect(toList());
     }
 
