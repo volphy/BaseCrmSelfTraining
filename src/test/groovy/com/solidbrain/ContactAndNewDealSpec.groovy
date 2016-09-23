@@ -7,6 +7,7 @@ import com.getbase.models.Deal
 import com.getbase.services.StagesService
 import com.getbase.services.UsersService
 import groovy.util.logging.Slf4j
+import spock.lang.IgnoreIf
 import spock.lang.Narrative
 import spock.lang.Shared
 import spock.lang.Specification
@@ -26,7 +27,7 @@ import static org.awaitility.Awaitility.await
  * Created by Krzysztof Wilk on 05/09/16.
  */
 
-@Slf4j
+@IgnoreIf({ properties["integrationTest"] != "true" })
 @Narrative('''Spring Boot based workflow creates new Deal if newly created Contact meets
 the following requirements:
 1. Contact is a company (organization)
@@ -40,6 +41,7 @@ if it meets the following requirements:
 @Unroll("""Create contact and deal test:
 isOrganization=#isOrganization, ownerId=#ownerId, dealName=#dealName, dealOwnerId=#dealOwnerId""")
 @Subject(Deal)
+@Slf4j
 class ContactAndNewDealSpec extends Specification {
     @Shared Client baseClient = new Client(new Configuration.Builder()
                                                         .accessToken(accessToken)
