@@ -103,7 +103,7 @@ class WorkflowTask {
                 if (shouldNewDealBeCreated(contact)) {
                     createNewDeal(contact);
                 }
-            } catch (RuntimeException e) {
+            } catch (Exception e) {
                 log.error("Cannot process contact (id={}). Message={})", contact.getId(), e.getMessage(), e);
             }
 
@@ -122,7 +122,7 @@ class WorkflowTask {
 
             try {
                 processRecentlyModifiedDeal(deal);
-            } catch (RuntimeException e) {
+            } catch (Exception e) {
                 log.error("Cannot process deal (id={}). Message={})", deal.getId(), e.getMessage(), e);
             }
         }
