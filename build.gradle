@@ -11,7 +11,7 @@ buildscript {
 	}
 	dependencies {
 		classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
-		classpath "org.sonarsource.scanner.gradle:sonarqube-gradle-plugin:2.1-rc3"
+		classpath "org.sonarsource.scanner.gradle:sonarqube-gradle-plugin:2.1"
 		classpath 'se.transmode.gradle:gradle-docker:1.2'
 	}
 }
