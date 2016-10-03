@@ -170,14 +170,22 @@ class ContactAndNewDealSpec extends Specification {
     }
 
     def getFirstStageId(Deal deal) {
-        deal == null ? null : baseClient.stages()
+        if (Objects.isNull(deal)) {
+            throw new IllegalArgumentException("Deal cannot be null")
+        }
+
+        def stage = baseClient.stages()
                 .list(new StagesService.SearchCriteria()
                 .active(true))
                 .stream()
                 .filter { s -> s.position == 1 && deal.stageId == s.id }
                 .findFirst()
-                .get()
-                .id
+
+        if (stage.isPresent()) {
+            stage.get().id
+        } else {
+            throw new IllegalStateException("Deal is incorrect. Deal={}", deal)
+        }
     }
 
     def "should not create deal (incorrect contact's attributes)"() {
