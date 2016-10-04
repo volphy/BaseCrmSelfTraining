@@ -11,12 +11,14 @@ buildscript {
 	dependencies {
 		classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
 		classpath "org.sonarsource.scanner.gradle:sonarqube-gradle-plugin:2.1-rc3"
+		classpath 'com.github.rholder:gradle-one-jar:1.0.4'
 	}
 }
 
 apply plugin: 'groovy'
 apply plugin: 'spring-boot'
 apply plugin: 'org.sonarqube'
+apply plugin: 'gradle-one-jar'
 
 jar {
 	baseName = 'self-training'
@@ -57,4 +59,8 @@ task logInfo {
 
 bootRun {
 	systemProperties = System.properties
+}
+
+task fatJar(type: OneJar) {
+	mainClass = 'com.solidbrain.SelfTrainingApplication'
 }
