@@ -40,10 +40,11 @@ dependencies {
 	compile 'com.getbase:basecrm-java:1.4.4'
 	compile 'org.projectlombok:lombok:1.16.10'
 
-	testCompile 'org.spockframework:spock-spring:1.0-groovy-2.4'
+	testCompile 'org.spockframework:spock-spring:1.1-groovy-2.4-rc-2'
 	testCompile 'org.springframework.boot:spring-boot-starter-test'
 	testCompile 'org.awaitility:awaitility:2.0.0'
 	testCompile 'org.awaitility:awaitility-groovy:2.0.0'
+	testCompile 'cglib:cglib-nodep:3.2.4'
 }
 
 test {
