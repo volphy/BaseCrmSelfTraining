@@ -6,7 +6,6 @@ import com.getbase.models.*;
 import com.getbase.services.DealsService;
 import com.getbase.services.StagesService;
 import com.getbase.services.UsersService;
-import com.getbase.sync.Meta;
 import com.getbase.sync.Sync;
 import lombok.extern.slf4j.Slf4j;
 
@@ -16,9 +15,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.PostConstruct;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+
 
 import static java.util.stream.Collectors.toList;
 
@@ -35,30 +36,52 @@ class WorkflowTask {
 
     private String dealNameDateFormat;
 
-    private final Client baseClient;
+    private Client baseClient;
 
     private final String deviceUuid;
+
+    private Sync sync;
 
     @Autowired
     public WorkflowTask(@Value("${workflow.deal.name.date.format}") String dealNameDateFormat) {
         this.dealNameDateFormat = dealNameDateFormat;
 
-        String accessToken = getAccessToken();
-
-        baseClient = new Client(new Configuration.Builder()
-                                        .accessToken(accessToken)
-                                        .build());
-
         deviceUuid = getDeviceUuid();
 
         accountManagersEmails = getEmailsOfAccountManagers();
-        log.debug("accountManagersEmails=" + accountManagersEmails);
+        log.debug("accountManagersEmails={}", accountManagersEmails);
 
         accountManagerOnDutyEmail = getAccountManagerOnDuty();
-        log.debug("accountManagerOnDutyEmail=" + accountManagerOnDutyEmail);
+        log.debug("accountManagerOnDutyEmail={}", accountManagerOnDutyEmail);
 
         salesRepresentativesEmails = getEmailsOfSalesRepresentatives();
-        log.debug("salesRepresentativesEmails=" + salesRepresentativesEmails);
+        log.debug("salesRepresentativesEmails={}", salesRepresentativesEmails);
+    }
+
+    @PostConstruct
+    public void initialize() {
+        String accessToken = getAccessToken();
+        this.baseClient = new Client(new Configuration.Builder()
+                                        .accessToken(accessToken)
+                                        .build());
+        this.sync = new Sync(baseClient, deviceUuid);
+    }
+
+    // Useful for unit testing (initialize() is not executed in tests context)
+    void initialize(Client client,
+                    Sync sync,
+                    String dealNameDateFormat,
+                    List<String> accountManagersEmails,
+                    String accountManagerOnDutyEmail,
+                    List<String> salesRepresentativesEmails) {
+        this.baseClient = client;
+        this.sync = sync;
+
+        this.dealNameDateFormat = dealNameDateFormat;
+
+        this.accountManagersEmails = accountManagersEmails;
+        this.accountManagerOnDutyEmail = accountManagerOnDutyEmail;
+        this.salesRepresentativesEmails = salesRepresentativesEmails;
     }
 
     /**
@@ -68,14 +91,12 @@ class WorkflowTask {
     public void runWorkflow() {
         log.info("Starting workflow run");
 
-        Sync sync = new Sync(baseClient, deviceUuid);
-
         // Workaround: https://gist.github.com/michal-mally/73ea265718a0d29aac350dd81528414f
         sync.subscribe(Account.class, (meta, account) -> true)
                 .subscribe(Address.class, (meta, address) -> true)
                 .subscribe(AssociatedContact.class, (meta, associatedContact) -> true)
-                .subscribe(Contact.class, this::processContact)
-                .subscribe(Deal.class, this::processDeal)
+                .subscribe(Contact.class, (meta, contact) -> processContact(meta.getSync().getEventType(), contact))
+                .subscribe(Deal.class, (meta, deal) -> processDeal(meta.getSync().getEventType(), deal))
                 .subscribe(LossReason.class, (meta, lossReason) -> true)
                 .subscribe(Note.class, (meta, note) -> true)
                 .subscribe(Pipeline.class, (meta, pipeline) -> true)
@@ -89,12 +110,10 @@ class WorkflowTask {
     }
 
     @SuppressWarnings("squid:S1192")
-    private boolean processContact(final Meta meta, final Contact contact) {
+     boolean processContact(final String eventType, final Contact contact) {
         MDC.put("contactId", contact.getId().toString());
         log.trace("Processing current contact");
 
-        String eventType = meta.getSync().getEventType();
-        log.trace("eventType={}", eventType);
         if (eventType.contentEquals("created") || eventType.contentEquals("updated")) {
             log.debug("Contact sync eventType={}", eventType);
 
@@ -111,12 +130,10 @@ class WorkflowTask {
         return true;
     }
 
-    private boolean processDeal(final Meta meta, final Deal deal) {
+    boolean processDeal(final String eventType, final Deal deal) {
         MDC.put("dealId", deal.getId().toString());
         log.trace("Processing current deal");
 
-        String eventType = meta.getSync().getEventType();
-        log.trace("Event type={}", eventType);
         if (eventType.contentEquals("created") || eventType.contentEquals("updated")) {
             log.debug("Deal sync event type={}", eventType);
 
