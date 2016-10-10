@@ -144,6 +144,6 @@ class WorkflowSpec extends Specification {
         task.processDeal(eventType, deal)
 
         then:
-        1 * contactsService.update(_, _)
+        1 * contactsService.update(123L, {attr -> attr["owner_id"] == owner.id })
     }
 }
