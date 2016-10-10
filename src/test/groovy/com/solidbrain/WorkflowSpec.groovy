@@ -3,6 +3,7 @@ package com.solidbrain
 import com.getbase.Client
 import com.getbase.models.Contact
 import com.getbase.models.Deal
+import com.getbase.models.Stage
 import com.getbase.models.User
 import com.getbase.services.ContactsService
 import com.getbase.services.DealsService
@@ -10,7 +11,7 @@ import com.getbase.services.StagesService
 import com.getbase.services.UsersService
 import com.getbase.sync.Sync
 import groovy.util.logging.Slf4j
-import spock.lang.Ignore
+import spock.lang.IgnoreIf
 import spock.lang.Shared
 import spock.lang.Specification
 
@@ -21,7 +22,7 @@ import java.time.format.DateTimeFormatter
  * Created by Krzysztof Wilk on 06/10/2016.
  */
 @Slf4j
-// TODO - extend common part of WorkflowSpec and ContactAndNewDealSpec into abstract class if it makes any sense
+@IgnoreIf({ properties["integrationTest"] == "true" })
 class WorkflowSpec extends Specification {
 
     @Shared List<String> accountManagersEmails
@@ -59,7 +60,6 @@ class WorkflowSpec extends Specification {
         assert accountManagerOnDutyEmail
         log.debug("accountManagerOnDuty={}", accountManagerOnDutyEmail)
 
-
         salesRepresentativesEmails = System.getProperty("workflow.sales.representatives.emails",
                                         System.getenv("workflow_sales_representatives_emails"))?.split("\\s*,\\s*")
         assert !salesRepresentativesEmails.isEmpty()
@@ -79,20 +79,20 @@ class WorkflowSpec extends Specification {
     def "should create deal if the newly created contact is a company and the owner of the newly created contact is a sales representative"() {
         given:
         def task = new WorkflowTask()
-        def client = Mock(Client)
-        def sync = Mock(Sync)
+        def client = Stub(Client)
+        def sync = Stub(Sync)
         task.initialize(client, sync, dealNameDateFormat, accountManagersEmails, accountManagerOnDutyEmail, salesRepresentativesEmails)
         def contact = new Contact(id: 123L,
                                     name: "Sample Company of Mine",
                                     isOrganization: true,
                                     ownerId: 465L)
         def owner = new User(id: 465L,
-                                email: "chrismwilk+salesrep+lisa@gmail.com")
+                                email: salesRepresentativesEmails[0])
         def eventType = "created"
-        def usersService = Mock(UsersService)
+        def usersService = Stub(UsersService)
         usersService.get(465L) >> owner
         client.users() >> usersService
-        def stagesService = Mock(StagesService)
+        def stagesService = Stub(StagesService)
         stagesService.list(!null) >> []
         client.stages() >> stagesService
         def dealsService = Mock(DealsService)
@@ -106,12 +106,11 @@ class WorkflowSpec extends Specification {
         1 * dealsService.create({ d -> d.name.startsWith(contact.name) && d.contactId == contact.id })
     }
 
-    @Ignore
     def "should assign contact related to won deal to account manager on duty"() {
         given:
         def task = new WorkflowTask()
-        def client = Mock(Client)
-        def sync = Mock(Sync)
+        def client = Stub(Client)
+        def sync = Stub(Sync)
         task.initialize(client, sync, dealNameDateFormat, accountManagersEmails, accountManagerOnDutyEmail, salesRepresentativesEmails)
         def contact = new Contact(id: 123L,
                 name: "Sample Company of Mine",
@@ -123,19 +122,21 @@ class WorkflowSpec extends Specification {
                                 ownerId: 765L,
                                 stageId: 1L)
         def owner = new User(id: 465L,
-                email: "chrismwilk+salesrep+lisa@gmail.com")
+                email: salesRepresentativesEmails[0])
         def eventType = "created"
-        def usersService = Mock(UsersService)
+        def usersService = Stub(UsersService)
         usersService.get(465L) >> owner
-        usersService.list(_ as UsersService.SearchCriteria) >> [123L]
+        usersService.list(_ as UsersService.SearchCriteria) >> [owner]
         client.users() >> usersService
-        def stagesService = Mock(StagesService)
-        stagesService.list(!null) >> []
+        def stagesService = Stub(StagesService)
+        def wonStage = new Stage(id: 1L, category: "won")
+        stagesService.list(!null) >> [wonStage]
         client.stages() >> stagesService
-        def dealsService = Mock(DealsService)
+        def dealsService = Stub(DealsService)
         dealsService.list(!null) >> []
         client.deals() >> dealsService
         def contactsService = Mock(ContactsService)
+        contactsService.get(123L) >> contact
         contactsService.update(_ as Long, _ as Map<String, Object>) >> []
         client.contacts() >> contactsService
 
