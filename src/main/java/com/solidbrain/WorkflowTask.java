@@ -58,6 +58,9 @@ class WorkflowTask {
         log.debug("salesRepresentativesEmails={}", salesRepresentativesEmails);
     }
 
+    /**
+     * This method is executed only in workflow simulation context.
+     */
     @PostConstruct
     public void initialize() {
         String accessToken = getAccessToken();
@@ -67,7 +70,10 @@ class WorkflowTask {
         this.sync = new Sync(baseClient, deviceUuid);
     }
 
-    // Useful for unit testing (initialize() is not executed in tests context)
+    /**
+     * This method is useful for unit testing because
+     *  initialize() is not executed in unit tests context.
+     */
     void initialize(Client client,
                     Sync sync,
                     String dealNameDateFormat,
