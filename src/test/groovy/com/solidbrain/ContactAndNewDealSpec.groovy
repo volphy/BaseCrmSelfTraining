@@ -156,7 +156,7 @@ class ContactAndNewDealSpec extends Specification {
         }
         Deal sampleDeal = baseClient.deals().list([contact_id: sampleContact.id])[0]
         sampleDeal.with {
-            name == dealName
+            name == getSampleDealName()
             ownerId == dealOwnerId
             // dealStageId cannot be moved to where: because it is evaluated after test's completion
             stageId == getFirstStageId(sampleDeal)
