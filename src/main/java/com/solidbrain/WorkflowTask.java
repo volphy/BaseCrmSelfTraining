@@ -70,7 +70,7 @@ class WorkflowTask {
         this.sync = new Sync(baseClient, deviceUuid);
     }
 
-    /**§
+    /**
      * This method is useful for unit testing because
      *  initialize() is not executed in unit tests context.
      */
