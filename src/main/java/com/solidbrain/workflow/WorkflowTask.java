@@ -1,4 +1,4 @@
-package com.solidbrain;
+package com.solidbrain.workflow;
 
 import com.getbase.Client;
 import com.getbase.Configuration;
@@ -63,6 +63,7 @@ class WorkflowTask {
      */
     @PostConstruct
     public void initialize() {
+        log.info("Running initialize");
         String accessToken = getAccessToken();
         this.baseClient = new Client(new Configuration.Builder()
                                         .accessToken(accessToken)

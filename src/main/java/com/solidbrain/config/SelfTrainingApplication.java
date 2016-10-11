@@ -1,4 +1,4 @@
-package com.solidbrain;
+package com.solidbrain.config;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -7,7 +7,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 /**
  * Spring Boot application entry class
  */
-@SpringBootApplication
+@SpringBootApplication(scanBasePackages= "com.solidbrain", excludeName = "SelfTrainingApplication")
 @EnableScheduling
 @SuppressWarnings("squid:S1118")
 public class SelfTrainingApplication {
