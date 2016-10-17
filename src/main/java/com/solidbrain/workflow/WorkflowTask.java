@@ -3,10 +3,9 @@ package com.solidbrain.workflow;
 import com.getbase.Client;
 import com.getbase.Configuration;
 import com.getbase.models.*;
-import com.getbase.services.DealsService;
-import com.getbase.services.StagesService;
-import com.getbase.services.UsersService;
 import com.getbase.sync.Sync;
+import com.solidbrain.services.ContactService;
+import com.solidbrain.services.DealService;
 import lombok.extern.slf4j.Slf4j;
 
 import org.slf4j.MDC;
@@ -16,8 +15,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 
@@ -41,6 +38,9 @@ class WorkflowTask {
     private final String deviceUuid;
 
     private Sync sync;
+
+    private DealService dealService;
+    private ContactService contactService;
 
     @Autowired
     public WorkflowTask(@Value("${workflow.deal.name.date.format}") String dealNameDateFormat) {
@@ -69,6 +69,9 @@ class WorkflowTask {
                                         .accessToken(accessToken)
                                         .build());
         this.sync = new Sync(baseClient, deviceUuid);
+
+        this.contactService = new ContactService(baseClient, accountManagerOnDutyEmail);
+        this.dealService = new DealService(baseClient, dealNameDateFormat, salesRepresentativesEmails, contactService);
     }
 
     /**
@@ -89,6 +92,9 @@ class WorkflowTask {
         this.accountManagersEmails = accountManagersEmails;
         this.accountManagerOnDutyEmail = accountManagerOnDutyEmail;
         this.salesRepresentativesEmails = salesRepresentativesEmails;
+
+        this.contactService = new ContactService(baseClient, accountManagerOnDutyEmail);
+        this.dealService = new DealService(client, dealNameDateFormat, salesRepresentativesEmails, contactService);
     }
 
     /**
@@ -126,8 +132,8 @@ class WorkflowTask {
 
             MDC.clear();
             try {
-                if (shouldNewDealBeCreated(contact)) {
-                    createNewDeal(contact);
+                if (dealService.shouldNewDealBeCreated(contact)) {
+                    dealService.createNewDeal(contact);
                 }
             } catch (Exception e) {
                 log.error("Cannot process contact (id={}). Message={})", contact.getId(), e.getMessage(), e);
@@ -156,143 +162,24 @@ class WorkflowTask {
     private void processRecentlyModifiedDeal(final Deal deal) {
         log.trace("Processing recently modified deal");
 
-        if (isDealStageWon(deal)) {
+        if (dealService.isDealStageWon(deal)) {
             log.info("Verifying deal in Won stage");
 
             MDC.clear();
-            Contact dealsContact = fetchExistingContact(deal.getContactId());
+            Contact dealsContact = contactService.fetchExistingContact(deal.getContactId());
             log.trace("Deal's contact={}", dealsContact);
 
-            User contactOwner = fetchOwner(dealsContact.getOwnerId());
+            User contactOwner = contactService.getContactOwner(dealsContact);
             log.trace("Contact's owner={}", contactOwner);
 
             if (!isContactOwnerAnAccountManager(contactOwner)) {
-                updateExistingContact(dealsContact);
+                contactService.updateExistingContact(dealsContact);
             }
         }
     }
 
-    @SuppressWarnings("squid:S1192")
-    private boolean updateExistingContact(final Contact dealsContact) {
-        MDC.put("contactId", dealsContact.getId().toString());
-        log.info("Updating contact's owner");
-        MDC.clear();
-
-        User accountManager = getUserByEmail(accountManagerOnDutyEmail)
-                                .orElseThrow(() -> new MissingResourceException("User not found",
-                                                                                "com.getbase.models.User",
-                                                                                accountManagerOnDutyEmail));
-
-        log.trace("Account Manager's Id={}", accountManager.getId());
-
-        Map<String, Object> contactAttributes = new HashMap<>();
-        contactAttributes.put("owner_id", accountManager.getId());
-        Contact updatedContact = baseClient.contacts()
-                                        .update(dealsContact.getId(), contactAttributes);
-
-        log.debug("Updated contact={}", updatedContact);
-
-        return true;
-    }
-
-    private Optional<User> getUserByEmail(final String email) {
-        return baseClient.users()
-                    .list(new UsersService.SearchCriteria().email(email))
-                    .stream()
-                    .findFirst();
-    }
-
     private boolean isContactOwnerAnAccountManager(final User user) {
         return accountManagersEmails.contains(user.getEmail());
-    }
-
-    private Contact fetchExistingContact(final Long contactId) {
-        return baseClient.contacts()
-                .get(contactId);
-    }
-
-    private boolean isDealStageWon(final Deal deal) {
-        return baseClient.stages()
-                .list(new StagesService.SearchCriteria().active(false))
-                .stream()
-                .anyMatch(s -> s.getCategory().contentEquals("won") && deal.getStageId() == s.getId());
-    }
-
-    @SuppressWarnings("squid:S1192")
-    private void createNewDeal(final Contact newContact) {
-        MDC.put("contactId", newContact.getId().toString());
-        log.info("Creating new deal");
-
-        DateTimeFormatter selectedFormatter;
-        try {
-            selectedFormatter = DateTimeFormatter.ofPattern(dealNameDateFormat);
-        } catch (IllegalArgumentException e) {
-            log.error("Illegal date format. Property workflow.deal.name.date.format={} Message={}",
-                        dealNameDateFormat,
-                        e.getMessage(),
-                        e);
-            log.error("Setting default to ISO local date format: yyyy-MM-dd");
-
-            selectedFormatter = DateTimeFormatter.ISO_LOCAL_DATE;
-        }
-
-        String dateSuffix = ZonedDateTime.now()
-                .toLocalDate()
-                .format(selectedFormatter);
-
-        String dealName = newContact.getName() + " " + dateSuffix;
-
-        Deal newDeal = new Deal();
-        newDeal.setName(dealName);
-        newDeal.setContactId(newContact.getId());
-        newDeal.setOwnerId(newContact.getOwnerId());
-
-        Deal newlyCreatedDeal = baseClient.deals()
-                                            .create(newDeal);
-
-        MDC.clear();
-        log.debug("Created new deal={}", newlyCreatedDeal);
-    }
-
-    private boolean shouldNewDealBeCreated(final Contact contact) {
-        boolean isContactACompany = contact.getIsOrganization();
-        log.trace("Is current contact a company={}", isContactACompany);
-
-        long ownerId = contact.getOwnerId();
-        User owner = fetchOwner(ownerId);
-        log.trace("Contact's owner={}", owner);
-
-        long contactId = contact.getId();
-        log.trace("Contact's id={}", contactId);
-
-        boolean isUserSalesRepresentative = salesRepresentativesEmails.contains(owner.getEmail());
-        log.trace("Is contact's owner a sales representative={}", isUserSalesRepresentative);
-
-        boolean activeDealsMissing = areNoActiveDealsFound(contactId);
-        log.trace("No deals found={}", activeDealsMissing);
-
-        boolean result = isContactACompany && isUserSalesRepresentative && activeDealsMissing;
-        log.debug("Should new deal be created={}", result);
-
-        return result;
-    }
-
-    private boolean areNoActiveDealsFound(final Long contactId) {
-        List<Long> activeStageIds = baseClient.stages()
-                                                        .list(new StagesService.SearchCriteria().active(true))
-                                                        .stream()
-                                                        .map(Stage::getId)
-                                                        .collect(toList());
-
-        return baseClient.deals()
-                            .list(new DealsService.SearchCriteria().contactId(contactId))
-                            .stream()
-                            .noneMatch(d -> activeStageIds.contains(d.getStageId()));
-    }
-
-    private User fetchOwner(final long userId) {
-        return baseClient.users()
-                    .get(userId);
     }
 
     private String getAccessToken() {
