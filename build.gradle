@@ -2,10 +2,10 @@ buildscript {
 	ext {
 		springBootVersion = '1.4.1.RELEASE'
 	}
-	repositories {
-		mavenCentral()
+    repositories {
+        mavenCentral()
         jcenter()
-	}
+    }
 	dependencies {
 		classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
 		classpath 'se.transmode.gradle:gradle-docker:1.2'
@@ -73,5 +73,12 @@ task buildDocker (type: Docker, dependsOn: build) {
             from jar
             into stageDir
         }
+    }
+}
+
+sonarqube {
+    properties {
+        property "sonar.jacoco.reportPath", "build/jacoco/test.exec"
+        property "sonar.groovy.jacoco.reportPath", "build/jacoco/test.exec"
     }
 }
