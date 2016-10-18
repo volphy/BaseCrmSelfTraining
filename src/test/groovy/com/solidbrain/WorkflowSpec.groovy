@@ -10,10 +10,13 @@ import com.getbase.services.DealsService
 import com.getbase.services.StagesService
 import com.getbase.services.UsersService
 import com.getbase.sync.Sync
+import com.solidbrain.workflow.WorkflowTask
 import groovy.util.logging.Slf4j
+import spock.lang.Ignore
 import spock.lang.IgnoreIf
 import spock.lang.Shared
 import spock.lang.Specification
+
 
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -104,6 +107,21 @@ class WorkflowSpec extends Specification {
 
         then:
         1 * dealsService.create({ d -> d.name.startsWith(contact.name) && d.contactId == contact.id })
+    }
+
+    @Ignore
+    def "should not create deal if contact does not meet criteria"() {
+        given:
+        false
+
+        when:
+        false
+
+        then:
+        false
+
+        where:
+        isOrganization | owner || outcome
     }
 
     def "should assign contact related to won deal to account manager on duty"() {

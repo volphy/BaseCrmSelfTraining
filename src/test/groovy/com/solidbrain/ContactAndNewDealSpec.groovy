@@ -8,8 +8,8 @@ import com.getbase.services.ContactsService
 import com.getbase.services.StagesService
 import com.getbase.services.UsersService
 import groovy.util.logging.Slf4j
-import spock.lang.IgnoreIf
 import spock.lang.Narrative
+import spock.lang.Requires
 import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Stepwise
@@ -20,6 +20,8 @@ import spock.lang.Unroll
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
+import com.solidbrain.workflow.WorkflowTask
+
 import static java.util.concurrent.TimeUnit.MILLISECONDS
 import static java.util.concurrent.TimeUnit.SECONDS
 import static org.awaitility.Awaitility.await
@@ -29,7 +31,7 @@ import static org.awaitility.Awaitility.await
  * Created by Krzysztof Wilk on 05/09/16.
  */
 
-@IgnoreIf({ properties["integrationTest"] != "true" })
+@Requires({ properties["integrationTest"] == "true" })
 @Narrative('''Spring Boot based workflow creates new Deal if newly created Contact meets
 the following requirements:
 1. Contact is a company (organization)
@@ -42,7 +44,7 @@ if it meets the following requirements:
 @Title("Integration test for deal created by workflow")
 @Unroll("""Create contact and deal test:
 isOrganization=#isOrganization, ownerId=#ownerId, dealName=#dealName, dealOwnerId=#dealOwnerId""")
-@Subject(Deal)
+@Subject(WorkflowTask)
 @Stepwise
 @Slf4j
 class ContactAndNewDealSpec extends Specification {
