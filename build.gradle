@@ -18,7 +18,6 @@ plugins {
 
 apply plugin: 'groovy'
 apply plugin: 'spring-boot'
-apply plugin: 'org.sonarqube'
 apply plugin: 'docker'
 
 jar {
