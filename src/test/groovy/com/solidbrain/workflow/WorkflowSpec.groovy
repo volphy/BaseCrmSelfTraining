@@ -15,10 +15,6 @@ import spock.lang.IgnoreIf
 import spock.lang.Shared
 import spock.lang.Specification
 
-
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
-
 /**
  * Created by Krzysztof Wilk on 06/10/2016.
  */
@@ -67,30 +63,20 @@ class WorkflowSpec extends Specification {
         log.debug("salesRepresentativesEmails={}", salesRepresentativesEmails)
     }
 
-
-    def getSampleCompanyName() {
-        "Some Company Of Mine"
-    }
-
-    def getSampleDealName(String contactName) {
-        contactName + " " + ZonedDateTime.now().toLocalDate().format(DateTimeFormatter.ofPattern(dealNameDateFormat))
-    }
-
     def "should create deal if the newly created contact is a company and the owner of the newly created contact is a sales representative"() {
         given:
         def task = new WorkflowTask()
         def client = Stub(Client)
         def sync = Stub(Sync)
         task.initialize(client, sync, dealNameDateFormat, accountManagersEmails, accountManagerOnDutyEmail, salesRepresentativesEmails)
-        def contact = new Contact(id: 123L,
-                                    name: "Sample Company of Mine",
-                                    isOrganization: true,
-                                    ownerId: 465L)
-        def owner = new User(id: 465L,
-                                email: salesRepresentativesEmails[0])
-        def eventType = "created"
+
+        and:
+        def contact = getSampleContact(isOrganization:  true)
+        def owner = getSampleContactsOwner(email: salesRepresentativesEmails[0])
+
+        and:
         def usersService = Stub(UsersService)
-        usersService.get(465L) >> owner
+        usersService.get(owner.id) >> owner
         client.users() >> usersService
         def stagesService = Stub(StagesService)
         stagesService.list(!null) >> []
@@ -104,6 +90,9 @@ class WorkflowSpec extends Specification {
 
         then:
         1 * dealsService.create({ d -> d.name.startsWith(contact.name) && d.contactId == contact.id })
+
+        where:
+        eventType << ["created", "updated"]
     }
 
 
@@ -113,15 +102,14 @@ class WorkflowSpec extends Specification {
         def client = Stub(Client)
         def sync = Stub(Sync)
         task.initialize(client, sync, dealNameDateFormat, accountManagersEmails, accountManagerOnDutyEmail, salesRepresentativesEmails)
-        def contact = new Contact(id: 123L,
-                                    name: "Sample Company of Mine",
-                                    isOrganization: isOrganization,
-                                    ownerId: 465L)
-        def owner = new User(id: 465L,
-                                email: ownersEmail)
-        def eventType = "created"
+
+        and:
+        def contact = getSampleContact(isOrganization: isOrganization)
+        def owner = getSampleContactsOwner(email: ownersEmail)
+
+        and:
         def usersService = Stub(UsersService)
-        usersService.get(465L) >> owner
+        usersService.get(owner.id) >> owner
         client.users() >> usersService
         def stagesService = Stub(StagesService)
         stagesService.list(!null) >> []
@@ -137,12 +125,23 @@ class WorkflowSpec extends Specification {
         0 * dealsService.create(_)
 
         where:
-        isOrganization  | ownersEmail
-        false           | salesRepresentativesEmails[0]
-        true            | accountManagersEmails[0]
-        false           | accountManagersEmails[0]
-        true            | sampleOtherUserEmail
-        false           | sampleOtherUserEmail
+        isOrganization  | ownersEmail                       | eventType
+        true            | salesRepresentativesEmails[0]     | "non-existing"
+        false           | salesRepresentativesEmails[0]     | "created"
+        false           | salesRepresentativesEmails[0]     | "updated"
+        false           | salesRepresentativesEmails[0]     | "non-existing"
+        true            | accountManagersEmails[0]          | "created"
+        true            | accountManagersEmails[0]          | "updated"
+        true            | accountManagersEmails[0]          | "non-existing"
+        false           | accountManagersEmails[0]          | "created"
+        false           | accountManagersEmails[0]          | "updated"
+        false           | accountManagersEmails[0]          | "non-existing"
+        true            | sampleOtherUserEmail              | "created"
+        true            | sampleOtherUserEmail              | "updated"
+        true            | sampleOtherUserEmail              | "non-existing"
+        false           | sampleOtherUserEmail              | "created"
+        false           | sampleOtherUserEmail              | "updated"
+        false           | sampleOtherUserEmail              | "non-existing"
     }
 
     def getSampleOtherUserEmail() {
@@ -156,31 +155,26 @@ class WorkflowSpec extends Specification {
         def client = Stub(Client)
         def sync = Stub(Sync)
         task.initialize(client, sync, dealNameDateFormat, accountManagersEmails, accountManagerOnDutyEmail, salesRepresentativesEmails)
-        def contact = new Contact(id: 123L,
-                name: "Sample Company of Mine",
-                isOrganization: true,
-                ownerId: 465L)
-        def deal = new Deal(id: 567L,
-                                name: "Sample Company of Mine 2016-10-07",
-                                contactId: 123L,
-                                ownerId: 765L,
-                                stageId: 1L)
-        def owner = new User(id: 465L,
-                email: salesRepresentativesEmails[0])
-        def eventType = "created"
+
+        and:
+        def contact = getSampleContact(isOrganization: true)
+        def deal = getSampleDeal()
+        def owner = getSampleContactsOwner(email: salesRepresentativesEmails[0])
+        def wonStage = getSampleStage(category: "won")
+
+        and:
         def usersService = Stub(UsersService)
-        usersService.get(465L) >> owner
+        usersService.get(owner.id) >> owner
         usersService.list(_ as UsersService.SearchCriteria) >> [owner]
         client.users() >> usersService
         def stagesService = Stub(StagesService)
-        def wonStage = new Stage(id: 1L, category: "won")
         stagesService.list(!null) >> [wonStage]
         client.stages() >> stagesService
         def dealsService = Stub(DealsService)
         dealsService.list(!null) >> []
         client.deals() >> dealsService
         def contactsService = Mock(ContactsService)
-        contactsService.get(123L) >> contact
+        contactsService.get(contact.id) >> contact
         contactsService.update(_ as Long, _ as Map<String, Object>) >> []
         client.contacts() >> contactsService
 
@@ -188,7 +182,14 @@ class WorkflowSpec extends Specification {
         task.processDeal(eventType, deal)
 
         then:
-        1 * contactsService.update(123L, {attr -> attr["owner_id"] == owner.id })
+        1 * contactsService.update(contact.id, {attr -> attr["owner_id"] == owner.id })
+
+        where:
+        eventType << ["created", "updated"]
+    }
+
+    def getSampleStage(Map parameters) {
+        new Stage(id: 1L, category: parameters.category)
     }
 
     def "should not assign contact related to won deal to account manager on duty"() {
@@ -197,31 +198,26 @@ class WorkflowSpec extends Specification {
         def client = Stub(Client)
         def sync = Stub(Sync)
         task.initialize(client, sync, dealNameDateFormat, accountManagersEmails, accountManagerOnDutyEmail, salesRepresentativesEmails)
-        def contact = new Contact(id: 123L,
-                name: "Sample Company of Mine",
-                isOrganization: true,
-                ownerId: 465L)
-        def deal = new Deal(id: 567L,
-                name: "Sample Company of Mine 2016-10-07",
-                contactId: 123L,
-                ownerId: 765L,
-                stageId: 1L)
-        def owner = new User(id: 465L,
-                email: ownersEmail)
-        def eventType = "created"
+
+        and:
+        def contact = getSampleContact(isOrganization: true)
+        def deal = getSampleDeal()
+        def owner = getSampleContactsOwner(email: ownersEmail)
+        def wonStage = getSampleStage(category: stageCategory)
+
+        and:
         def usersService = Stub(UsersService)
-        usersService.get(465L) >> owner
+        usersService.get(owner.id) >> owner
         usersService.list(_ as UsersService.SearchCriteria) >> [owner]
         client.users() >> usersService
         def stagesService = Stub(StagesService)
-        def someStage = new Stage(id: 1L, category: stageCategory)
-        stagesService.list(!null) >> [someStage]
+        stagesService.list(!null) >> [wonStage]
         client.stages() >> stagesService
         def dealsService = Stub(DealsService)
         dealsService.list(!null) >> [deal]
         client.deals() >> dealsService
         def contactsService = Mock(ContactsService)
-        contactsService.get(123L) >> contact
+        contactsService.get(contact.id) >> contact
         contactsService.update(_ as Long, _ as Map<String, Object>) >> []
         client.contacts() >> contactsService
 
@@ -232,10 +228,38 @@ class WorkflowSpec extends Specification {
         0 * contactsService.update(_, _)
 
         where:
-        stageCategory   | ownersEmail
-        "won"           | accountManagersEmails[0]
-        "invalid"       | salesRepresentativesEmails[0]
-        "invalid"       | accountManagersEmails[0]
-        "invalid"       | sampleOtherUserEmail
+        stageCategory   | ownersEmail                       | eventType
+        "won"           | accountManagersEmails[0]          | "created"
+        "won"           | accountManagersEmails[0]          | "updated"
+        "won"           | accountManagersEmails[0]          | "non-existing"
+        "invalid"       | salesRepresentativesEmails[0]     | "created"
+        "invalid"       | salesRepresentativesEmails[0]     | "updated"
+        "invalid"       | salesRepresentativesEmails[0]     | "non-existing"
+        "invalid"       | accountManagersEmails[0]          | "created"
+        "invalid"       | accountManagersEmails[0]          | "updated"
+        "invalid"       | accountManagersEmails[0]          | "non-existing"
+        "invalid"       | sampleOtherUserEmail              | "created"
+        "invalid"       | sampleOtherUserEmail              | "updated"
+        "invalid"       | sampleOtherUserEmail              | "non-existing"
+    }
+
+    def getSampleContactsOwner(Map parameters) {
+        new User(id: 465L,
+                email: parameters.email)
+    }
+
+    def getSampleDeal() {
+        new Deal(id: 567L,
+                name: "Sample Company of Mine 2016-10-07",
+                contactId: 123L,
+                ownerId: 765L,
+                stageId: 1L)
+    }
+
+    def getSampleContact(Map parameters) {
+        new Contact(id: 123L,
+                name: "Sample Company of Mine",
+                isOrganization: parameters.isOrganization,
+                ownerId: 465L)
     }
 }
