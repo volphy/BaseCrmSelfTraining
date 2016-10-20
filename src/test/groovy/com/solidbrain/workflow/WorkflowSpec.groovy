@@ -95,7 +95,6 @@ class WorkflowSpec extends Specification {
         eventType << ["created", "updated"]
     }
 
-
     def "should not create deal if contact does not meet criteria"() {
         given:
         def task = new WorkflowTask()
@@ -147,7 +146,6 @@ class WorkflowSpec extends Specification {
     def getSampleOtherUserEmail() {
         "some+admin@gmail.com"
     }
-
 
     def "should assign contact related to won deal to account manager on duty"() {
         given:
@@ -252,7 +250,7 @@ class WorkflowSpec extends Specification {
         new Deal(id: 567L,
                 name: "Sample Company of Mine 2016-10-07",
                 contactId: 123L,
-                ownerId: 765L,
+                ownerId: 465L,
                 stageId: 1L)
     }
 
@@ -261,5 +259,55 @@ class WorkflowSpec extends Specification {
                 name: "Sample Company of Mine",
                 isOrganization: parameters.isOrganization,
                 ownerId: 465L)
+    }
+
+    def "should fail if processing contact throws exception"() {
+        given:
+        def task = new WorkflowTask()
+        def client = Stub(Client)
+        def sync = Stub(Sync)
+        task.initialize(client, sync, dealNameDateFormat, accountManagersEmails, accountManagerOnDutyEmail, salesRepresentativesEmails)
+
+        and:
+        def contact = getSampleContact(isOrganization: true)
+
+        and:
+        def usersService = Stub(UsersService)
+        usersService.get(_) >> { throw new Exception("Cannot process contact (id=" + contact.id + ". Message=null")}
+        client.users() >> usersService
+
+        when:
+        def status = task.processContact(eventType, contact)
+
+        then:
+        !status
+
+        where:
+        eventType << ["created", "updated"]
+    }
+
+    def "should fail if processing deal throws exception"() {
+        given:
+        def task = new WorkflowTask()
+        def client = Stub(Client)
+        def sync = Stub(Sync)
+        task.initialize(client, sync, dealNameDateFormat, accountManagersEmails, accountManagerOnDutyEmail, salesRepresentativesEmails)
+
+        and:
+        def deal = getSampleDeal()
+
+        and:
+        def stagesService = Stub(StagesService)
+        stagesService.list(_) >> { throw new Exception("Cannot process deal (id=" + deal.id + ". Message=null")}
+        client.stages() >> stagesService
+
+        when:
+        def status = task.processDeal(eventType, deal)
+
+        then:
+        !status
+
+        where:
+        eventType << ["created", "updated"]
     }
 }

@@ -127,6 +127,7 @@ class WorkflowTask {
         MDC.put("contactId", contact.getId().toString());
         log.trace("Processing current contact");
 
+        boolean processingStatus = true;
         if (eventType.contentEquals("created") || eventType.contentEquals("updated")) {
             log.debug("Contact sync eventType={}", eventType);
 
@@ -136,27 +137,31 @@ class WorkflowTask {
                     dealService.createNewDeal(contact);
                 }
             } catch (Exception e) {
+                processingStatus = false;
                 log.error("Cannot process contact (id={}). Message={})", contact.getId(), e.getMessage(), e);
             }
 
         }
-        return true;
+        return processingStatus;
     }
 
     boolean processDeal(final String eventType, final Deal deal) {
         MDC.put("dealId", deal.getId().toString());
         log.trace("Processing current deal");
 
+        boolean processingStatus = true;
         if (eventType.contentEquals("created") || eventType.contentEquals("updated")) {
             log.debug("Deal sync event type={}", eventType);
 
             try {
                 processRecentlyModifiedDeal(deal);
             } catch (Exception e) {
+                processingStatus = false;
                 log.error("Cannot process deal (id={}). Message={})", deal.getId(), e.getMessage(), e);
             }
         }
-        return true;
+
+        return processingStatus;
     }
 
     private void processRecentlyModifiedDeal(final Deal deal) {
