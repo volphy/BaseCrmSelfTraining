@@ -22,6 +22,8 @@ import java.time.format.DateTimeFormatter
 
 import com.solidbrain.workflow.WorkflowTask
 
+import static java.util.stream.Collectors.toList
+
 import static java.util.concurrent.TimeUnit.MILLISECONDS
 import static java.util.concurrent.TimeUnit.SECONDS
 import static org.awaitility.Awaitility.await
@@ -56,6 +58,8 @@ class ContactAndNewDealSpec extends Specification {
     @Shared def sampleAccountManagerId = getAccountManagerOnDuty()?.id
     @Shared def sampleOtherUserId = getSampleOtherUser()?.id
 
+    @Shared List<Long> allAccountManagersIds = getAllAccountManagers()*.id
+
     static def dealNameDateFormat
 
     long waitForWorkflowExecutionTimeout = 30_000
@@ -86,6 +90,23 @@ class ContactAndNewDealSpec extends Specification {
         def accountManager = baseClient.users().list(new UsersService.SearchCriteria().email(email))[0]
         assert accountManager
         return accountManager
+    }
+
+    def getAllAccountManagers() {
+        def emails = Arrays.asList(System.getProperty("workflow.account.managers.emails",
+                                            System.getenv("workflow_account_managers_emails"))
+                            .replaceAll(" ", "")
+                            .split(","))
+        assert emails
+
+        def accountManagers = baseClient.users().list(new UsersService.SearchCriteria()
+                                                            .confirmed(true)
+                                                            .status("active"))
+                                                .stream()
+                                                .filter { u -> emails.contains(u.getEmail()) }
+                                                .collect(toList())
+        assert accountManagers
+        return accountManagers
     }
 
     def getSampleOtherUser() {
@@ -153,19 +174,40 @@ class ContactAndNewDealSpec extends Specification {
 
     def "should create deal (correct contact's attributes)"() {
         log.debug("Testing positive path (test-to-pass)")
+
         when: "new contact that is a company owned by a sales rep is created"
         Contact sampleContact = createSampleContact(sampleCompanyName, isOrganization, ownerId)
 
         then: "new deal at the first stage of the pipeline for this company is created"
-        await().atMost(waitForWorkflowExecutionTimeout, MILLISECONDS).pollInterval(awaitPollingInterval, MILLISECONDS).until {
-            !baseClient.deals().list([contact_id: sampleContact.id]).isEmpty()
+        await().atMost(waitForWorkflowExecutionTimeout, MILLISECONDS)
+                .pollInterval(awaitPollingInterval, MILLISECONDS).until {
+            baseClient.contacts().get(sampleContact.id) && !baseClient.deals().list([contact_id: sampleContact.id]).isEmpty()
         }
         Deal sampleDeal = baseClient.deals().list([contact_id: sampleContact.id])[0]
+        sampleDeal
         sampleDeal.with {
             name == getSampleDealName(getSampleCompanyName())
             ownerId == dealOwnerId
             // dealStageId cannot be moved to where: because it is evaluated after test's completion
             stageId == getFirstStageId(sampleDeal)
+        }
+
+        when: "newly created deal is moved to won stage"
+        def wonStageId = getWonStageId(sampleDeal)
+        baseClient.deals().update(sampleDeal.id, ["stage_id": wonStageId])
+
+        then: "deal stage has been changed"
+        await().atMost(waitForWorkflowExecutionTimeout, MILLISECONDS)
+                .pollInterval(awaitPollingInterval, MILLISECONDS)
+                .until {
+            baseClient.deals().get(sampleDeal.id).getStageId().equals(wonStageId)
+        }
+
+        and: "contact has been assigned to an account manager"
+        await().atMost(waitForWorkflowExecutionTimeout, MILLISECONDS)
+                .pollInterval(awaitPollingInterval, MILLISECONDS)
+                .until {
+            allAccountManagersIds.contains(baseClient.contacts().get(sampleContact.id).getOwnerId())
         }
 
         where: "sample contact's attributes are"
@@ -205,6 +247,23 @@ class ContactAndNewDealSpec extends Specification {
         }
     }
 
+    def getWonStageId(Deal deal) {
+        if (Objects.isNull(deal)) {
+            throw new IllegalArgumentException("Deal cannot be null")
+        }
+
+        def stage = baseClient.stages()
+                .list(new StagesService.SearchCriteria().name("won"))
+                .stream()
+                .findFirst()
+
+        if (stage.isPresent()) {
+            stage.get().id
+        } else {
+            throw new IllegalStateException("Deal is incorrect. Deal={}", deal)
+        }
+    }
+
     def "should not create deal (incorrect contact's attributes)"() {
         log.debug("Testing negative path (tests-to-fail)")
         when: "new contact is created"
@@ -212,7 +271,12 @@ class ContactAndNewDealSpec extends Specification {
 
         then: "new deal is not created"
         sleep(waitForWorkflowExecutionTimeout)
-        !baseClient.deals().list([contact_id: sampleContact.id])
+        await().atMost(waitForWorkflowExecutionTimeout, MILLISECONDS)
+                    .pollInterval(awaitPollingInterval, MILLISECONDS)
+                    .until {
+            baseClient.contacts().get(sampleContact.id) && !baseClient.deals().list([contact_id: sampleContact.id])
+        }
+
 
         where: "sample contact's attributes are"
         isOrganization  | ownerId

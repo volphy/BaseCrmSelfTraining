@@ -41,7 +41,7 @@ public class DealService {
         return baseClient.stages()
                 .list(new StagesService.SearchCriteria().active(false))
                 .stream()
-                .anyMatch(s -> s.getCategory().contentEquals("won") && deal.getStageId() == s.getId());
+                .anyMatch(s -> s.getCategory().contentEquals("won") && deal.getStageId().equals(s.getId()));
     }
 
     @SuppressWarnings("squid:S1192")

@@ -165,7 +165,7 @@ class WorkflowTask {
     }
 
     private void processRecentlyModifiedDeal(final Deal deal) {
-        log.trace("Processing recently modified deal");
+        log.trace("Processing recently modified deal={}", deal);
 
         if (dealService.isDealStageWon(deal)) {
             log.info("Verifying deal in Won stage");

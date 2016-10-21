@@ -10,6 +10,8 @@ import com.getbase.services.DealsService
 import com.getbase.services.StagesService
 import com.getbase.services.UsersService
 import com.getbase.sync.Sync
+import com.solidbrain.services.ContactService
+import com.solidbrain.services.DealService
 import groovy.util.logging.Slf4j
 import spock.lang.IgnoreIf
 import spock.lang.Shared
@@ -309,5 +311,21 @@ class WorkflowSpec extends Specification {
 
         where:
         eventType << ["created", "updated"]
+    }
+
+    def "should use default deal name suffix if invalid date format specified"() {
+        given:
+        def client = Stub(Client)
+        def dealsService = Mock(DealsService)
+        client.deals() >> dealsService
+        def contactService = Stub(ContactService)
+        def dealService = new DealService(client, "INVALID-FORMAT", [], contactService)
+        def contact = getSampleContact(isOrganization: true)
+
+        when:
+        dealService.createNewDeal(contact)
+
+        then:
+        1 * dealsService.create( { d -> d.name =~ /\d{4}-\d{2}-\d{2}$/ } )
     }
 }
