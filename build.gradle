@@ -19,6 +19,7 @@ plugins {
 apply plugin: 'groovy'
 apply plugin: 'spring-boot'
 apply plugin: 'docker'
+apply plugin: 'jacoco'
 
 jar {
 	baseName = 'self-training'
@@ -50,8 +51,9 @@ dependencies {
 
 test {
 	outputs.upToDateWhen { false }
-	systemProperties = System.properties
+    systemProperties = System.properties
 }
+
 
 task logInfo {
 	logging.captureStandardOutput LogLevel.INFO
@@ -81,3 +83,8 @@ sonarqube {
         property "sonar.groovy.jacoco.reportPath", "build/jacoco/test.exec"
     }
 }
+
+jacoco {
+    toolVersion = "0.7.7.201606060606"
+}
+
