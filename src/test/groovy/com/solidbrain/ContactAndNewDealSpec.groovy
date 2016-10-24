@@ -4,19 +4,25 @@ import com.getbase.Client
 import com.getbase.models.Contact
 import com.getbase.Configuration
 import com.getbase.models.Deal
+import com.getbase.services.ContactsService
 import com.getbase.services.StagesService
 import com.getbase.services.UsersService
 import groovy.util.logging.Slf4j
-import spock.lang.IgnoreIf
 import spock.lang.Narrative
+import spock.lang.Requires
 import spock.lang.Shared
 import spock.lang.Specification
+import spock.lang.Stepwise
 import spock.lang.Subject
 import spock.lang.Title
 import spock.lang.Unroll
 
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+
+import com.solidbrain.workflow.WorkflowTask
+
+import static java.util.stream.Collectors.toList
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS
 import static java.util.concurrent.TimeUnit.SECONDS
@@ -27,7 +33,7 @@ import static org.awaitility.Awaitility.await
  * Created by Krzysztof Wilk on 05/09/16.
  */
 
-@IgnoreIf({ properties["integrationTest"] != "true" })
+@Requires({ properties["integrationTest"] == "true" })
 @Narrative('''Spring Boot based workflow creates new Deal if newly created Contact meets
 the following requirements:
 1. Contact is a company (organization)
@@ -40,7 +46,8 @@ if it meets the following requirements:
 @Title("Integration test for deal created by workflow")
 @Unroll("""Create contact and deal test:
 isOrganization=#isOrganization, ownerId=#ownerId, dealName=#dealName, dealOwnerId=#dealOwnerId""")
-@Subject(Deal)
+@Subject(WorkflowTask)
+@Stepwise
 @Slf4j
 class ContactAndNewDealSpec extends Specification {
     @Shared Client baseClient = new Client(new Configuration.Builder()
@@ -50,6 +57,8 @@ class ContactAndNewDealSpec extends Specification {
     @Shared def sampleSalesRepId = getSampleSalesRep()?.id
     @Shared def sampleAccountManagerId = getAccountManagerOnDuty()?.id
     @Shared def sampleOtherUserId = getSampleOtherUser()?.id
+
+    @Shared List<Long> allAccountManagersIds = getAllAccountManagers()*.id
 
     static def dealNameDateFormat
 
@@ -64,7 +73,7 @@ class ContactAndNewDealSpec extends Specification {
     }
 
     def getSampleSalesRep() {
-        def emails = System.getProperty("workflow.sales.representatives.emails")
+        def emails = System.getProperty("workflow.sales.representatives.emails", System.getenv("workflow_sales_representatives_emails"))
         assert emails
 
         def email = emails.split(",")[0].trim()
@@ -75,7 +84,7 @@ class ContactAndNewDealSpec extends Specification {
     }
 
     def getAccountManagerOnDuty() {
-        def email = System.getProperty("workflow.account.manager.on.duty.email").trim()
+        def email = System.getProperty("workflow.account.manager.on.duty.email", System.getenv("workflow_account_manager_on_duty_email")).trim()
         assert email
 
         def accountManager = baseClient.users().list(new UsersService.SearchCriteria().email(email))[0]
@@ -83,13 +92,33 @@ class ContactAndNewDealSpec extends Specification {
         return accountManager
     }
 
+    def getAllAccountManagers() {
+        def emails = Arrays.asList(System.getProperty("workflow.account.managers.emails",
+                                            System.getenv("workflow_account_managers_emails"))
+                            .replaceAll(" ", "")
+                            .split(","))
+        assert emails
+
+        def accountManagers = baseClient.users().list(new UsersService.SearchCriteria()
+                                                            .confirmed(true)
+                                                            .status("active"))
+                                                .stream()
+                                                .filter { u -> emails.contains(u.getEmail()) }
+                                                .collect(toList())
+        assert accountManagers
+        return accountManagers
+    }
+
     def getSampleOtherUser() {
-        def emails = Arrays.asList(System.getProperty("workflow.sales.representatives.emails")
+        def emails = Arrays.asList(System.getProperty("workflow.sales.representatives.emails",
+                                            System.getenv("workflow_sales_representatives_emails"))
                                             .replaceAll(" ", "")
                                             .split(",")
-                                    + System.getProperty("workflow.account.manager.on.duty.email")
+                                    + System.getProperty("workflow.account.managers.emails",
+                                                System.getenv("workflow_account_managers_emails"))
                                             .replaceAll(" ", "")
                                             .split(","))
+        assert emails
 
         def sampleUser = baseClient.users()
                                         .list(new UsersService.SearchCriteria()
@@ -145,21 +174,40 @@ class ContactAndNewDealSpec extends Specification {
 
     def "should create deal (correct contact's attributes)"() {
         log.debug("Testing positive path (test-to-pass)")
+
         when: "new contact that is a company owned by a sales rep is created"
-        Contact sampleContact = baseClient.contacts().create([name : sampleCompanyName,
-                                                              is_organization:  isOrganization,
-                                                              owner_id: ownerId])
+        Contact sampleContact = createSampleContact(sampleCompanyName, isOrganization, ownerId)
 
         then: "new deal at the first stage of the pipeline for this company is created"
-        await().atMost(waitForWorkflowExecutionTimeout, MILLISECONDS).pollInterval(awaitPollingInterval, MILLISECONDS).until {
-            !baseClient.deals().list([contact_id: sampleContact.id]).isEmpty()
+        await().atMost(waitForWorkflowExecutionTimeout, MILLISECONDS)
+                .pollInterval(awaitPollingInterval, MILLISECONDS).until {
+            baseClient.contacts().get(sampleContact.id) && !baseClient.deals().list([contact_id: sampleContact.id]).isEmpty()
         }
         Deal sampleDeal = baseClient.deals().list([contact_id: sampleContact.id])[0]
+        sampleDeal
         sampleDeal.with {
-            name == getSampleDealName()
+            name == getSampleDealName(getSampleCompanyName())
             ownerId == dealOwnerId
             // dealStageId cannot be moved to where: because it is evaluated after test's completion
             stageId == getFirstStageId(sampleDeal)
+        }
+
+        when: "newly created deal is moved to won stage"
+        def wonStageId = getWonStageId(sampleDeal)
+        baseClient.deals().update(sampleDeal.id, ["stage_id": wonStageId])
+
+        then: "deal stage has been changed"
+        await().atMost(waitForWorkflowExecutionTimeout, MILLISECONDS)
+                .pollInterval(awaitPollingInterval, MILLISECONDS)
+                .until {
+            baseClient.deals().get(sampleDeal.id).getStageId().equals(wonStageId)
+        }
+
+        and: "contact has been assigned to an account manager"
+        await().atMost(waitForWorkflowExecutionTimeout, MILLISECONDS)
+                .pollInterval(awaitPollingInterval, MILLISECONDS)
+                .until {
+            allAccountManagersIds.contains(baseClient.contacts().get(sampleContact.id).getOwnerId())
         }
 
         where: "sample contact's attributes are"
@@ -167,6 +215,17 @@ class ContactAndNewDealSpec extends Specification {
         ownerId << [sampleSalesRepId]
         dealName << [getSampleDealName(sampleCompanyName)]
         dealOwnerId << [sampleSalesRepId]
+    }
+
+    def Contact createSampleContact(String name, boolean isOrganization, long ownerId) {
+        assert baseClient.contacts().list(new ContactsService.SearchCriteria().name(sampleCompanyName)).isEmpty()
+
+        def contact = baseClient.contacts().create([name           : name,
+                                                    is_organization: isOrganization,
+                                                    owner_id       : ownerId])
+
+        assert contact
+        return contact
     }
 
     def getFirstStageId(Deal deal) {
@@ -188,16 +247,36 @@ class ContactAndNewDealSpec extends Specification {
         }
     }
 
+    def getWonStageId(Deal deal) {
+        if (Objects.isNull(deal)) {
+            throw new IllegalArgumentException("Deal cannot be null")
+        }
+
+        def stage = baseClient.stages()
+                .list(new StagesService.SearchCriteria().name("won"))
+                .stream()
+                .findFirst()
+
+        if (stage.isPresent()) {
+            stage.get().id
+        } else {
+            throw new IllegalStateException("Deal is incorrect. Deal={}", deal)
+        }
+    }
+
     def "should not create deal (incorrect contact's attributes)"() {
         log.debug("Testing negative path (tests-to-fail)")
         when: "new contact is created"
-        Contact sampleContact = baseClient.contacts().create([name : sampleCompanyName,
-                                                                is_organization: isOrganization,
-                                                                owner_id: ownerId])
+        Contact sampleContact = createSampleContact(sampleCompanyName, isOrganization, ownerId)
 
         then: "new deal is not created"
         sleep(waitForWorkflowExecutionTimeout)
-        !baseClient.deals().list([contact_id: sampleContact.id])
+        await().atMost(waitForWorkflowExecutionTimeout, MILLISECONDS)
+                    .pollInterval(awaitPollingInterval, MILLISECONDS)
+                    .until {
+            baseClient.contacts().get(sampleContact.id) && !baseClient.deals().list([contact_id: sampleContact.id])
+        }
+
 
         where: "sample contact's attributes are"
         isOrganization  | ownerId
