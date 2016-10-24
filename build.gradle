@@ -63,10 +63,14 @@ bootRun {
 
 
 task buildDocker (type: Docker, dependsOn: build) {
+    group = 'build'
+    description = 'Builds Docker container to run the workflow'
+
     push = false
     applicationName = jar.baseName
     version = jar.version
     dockerfile = file('src/main/resources/docker/Dockerfile')
+
     doFirst {
         copy {
             from jar
