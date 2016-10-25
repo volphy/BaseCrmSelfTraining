@@ -149,6 +149,7 @@ class WorkflowSpec extends Specification {
         "some+admin@gmail.com"
     }
 
+
     def "should assign contact related to won deal to account manager on duty"() {
         given:
         def task = new WorkflowTask()
@@ -161,6 +162,7 @@ class WorkflowSpec extends Specification {
         def deal = getSampleDeal()
         def owner = getSampleContactsOwner(email: salesRepresentativesEmails[0])
         def wonStage = getSampleStage(category: "won")
+        def accountManagerOnDuty = getSampleContactsOwner(email: accountManagerOnDutyEmail)
 
         and:
         def usersService = Stub(UsersService)
@@ -182,7 +184,7 @@ class WorkflowSpec extends Specification {
         task.processDeal(eventType, deal)
 
         then:
-        1 * contactsService.update(contact.id, {attr -> attr["owner_id"] == owner.id })
+        1 * contactsService.update(contact.id, {attr -> attr["owner_id"] == accountManagerOnDuty.id })
 
         where:
         eventType << ["created", "updated"]
@@ -229,8 +231,6 @@ class WorkflowSpec extends Specification {
 
         where:
         stageCategory   | ownersEmail                       | eventType
-        "won"           | accountManagersEmails[0]          | "created"
-        "won"           | accountManagersEmails[0]          | "updated"
         "won"           | accountManagersEmails[0]          | "non-existing"
         "invalid"       | salesRepresentativesEmails[0]     | "created"
         "invalid"       | salesRepresentativesEmails[0]     | "updated"

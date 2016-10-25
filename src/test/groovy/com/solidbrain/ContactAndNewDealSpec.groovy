@@ -218,7 +218,7 @@ class ContactAndNewDealSpec extends Specification {
     }
 
     def Contact createSampleContact(String name, boolean isOrganization, long ownerId) {
-        assert baseClient.contacts().list(new ContactsService.SearchCriteria().name(sampleCompanyName)).isEmpty()
+        assert !baseClient.contacts().list(new ContactsService.SearchCriteria().name(name))
 
         def contact = baseClient.contacts().create([name           : name,
                                                     is_organization: isOrganization,

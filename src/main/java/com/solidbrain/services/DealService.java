@@ -37,7 +37,26 @@ public class DealService {
         this.contactService = contactService;
     }
 
-    public boolean isDealStageWon(final Deal deal) {
+    public boolean processDeal(final String eventType, final Deal deal) {
+        MDC.put("dealId", deal.getId().toString());
+        log.trace("Processing current deal");
+
+        boolean processingStatus = true;
+        if (eventType.contentEquals("created") || eventType.contentEquals("updated")) {
+            log.debug("Deal sync event type={}", eventType);
+
+            try {
+                processRecentlyModifiedDeal(deal);
+            } catch (Exception e) {
+                processingStatus = false;
+                log.error("Cannot process deal (id={}). Message={})", deal.getId(), e.getMessage(), e);
+            }
+        }
+
+        return processingStatus;
+    }
+
+    private boolean isDealStageWon(final Deal deal) {
         return baseClient.stages()
                 .list(new StagesService.SearchCriteria().active(false))
                 .stream()
@@ -113,5 +132,24 @@ public class DealService {
                 .list(new DealsService.SearchCriteria().contactId(contactId))
                 .stream()
                 .noneMatch(d -> activeStageIds.contains(d.getStageId()));
+    }
+
+    public void processRecentlyModifiedDeal(final Deal deal) {
+        log.trace("Processing recently modified deal={}", deal);
+
+        if (isDealStageWon(deal)) {
+            log.info("Verifying deal in Won stage");
+
+            MDC.clear();
+            Contact dealsContact = contactService.fetchExistingContact(deal.getContactId());
+            log.debug("Deal's contact={}", dealsContact);
+
+            User contactOwner = contactService.getContactOwner(dealsContact);
+            log.debug("Contact's owner={}", contactOwner);
+
+            if (!contactService.isContactOwnerAnAccountManager(contactOwner)) {
+                contactService.updateExistingContact(dealsContact);
+            }
+        }
     }
 }

@@ -70,7 +70,7 @@ class WorkflowTask {
                                         .build());
         this.sync = new Sync(baseClient, deviceUuid);
 
-        this.contactService = new ContactService(baseClient, accountManagerOnDutyEmail);
+        this.contactService = new ContactService(baseClient, dealNameDateFormat, accountManagersEmails, accountManagerOnDutyEmail, salesRepresentativesEmails);
         this.dealService = new DealService(baseClient, dealNameDateFormat, salesRepresentativesEmails, contactService);
     }
 
@@ -93,7 +93,7 @@ class WorkflowTask {
         this.accountManagerOnDutyEmail = accountManagerOnDutyEmail;
         this.salesRepresentativesEmails = salesRepresentativesEmails;
 
-        this.contactService = new ContactService(baseClient, accountManagerOnDutyEmail);
+        this.contactService = new ContactService(baseClient, dealNameDateFormat, accountManagersEmails, accountManagerOnDutyEmail, salesRepresentativesEmails);
         this.dealService = new DealService(client, dealNameDateFormat, salesRepresentativesEmails, contactService);
     }
 
@@ -108,7 +108,7 @@ class WorkflowTask {
         sync.subscribe(Account.class, (meta, account) -> true)
                 .subscribe(Address.class, (meta, address) -> true)
                 .subscribe(AssociatedContact.class, (meta, associatedContact) -> true)
-                .subscribe(Contact.class, (meta, contact) -> processContact(meta.getSync().getEventType(), contact))
+                .subscribe(Contact.class, (meta, contact) ->  processContact(meta.getSync().getEventType(), contact))
                 .subscribe(Deal.class, (meta, deal) -> processDeal(meta.getSync().getEventType(), deal))
                 .subscribe(LossReason.class, (meta, lossReason) -> true)
                 .subscribe(Note.class, (meta, note) -> true)
@@ -122,70 +122,16 @@ class WorkflowTask {
                 .fetch();
     }
 
-    @SuppressWarnings("squid:S1192")
-     boolean processContact(final String eventType, final Contact contact) {
-        MDC.put("contactId", contact.getId().toString());
-        log.trace("Processing current contact");
-
-        boolean processingStatus = true;
-        if (eventType.contentEquals("created") || eventType.contentEquals("updated")) {
-            log.debug("Contact sync eventType={}", eventType);
-
-            MDC.clear();
-            try {
-                if (dealService.shouldNewDealBeCreated(contact)) {
-                    dealService.createNewDeal(contact);
-                }
-            } catch (Exception e) {
-                processingStatus = false;
-                log.error("Cannot process contact (id={}). Message={})", contact.getId(), e.getMessage(), e);
-            }
-
-        }
-        return processingStatus;
+    boolean processContact(String eventType, Contact contact) {
+        return contactService.processContact(eventType, contact);
     }
 
-    boolean processDeal(final String eventType, final Deal deal) {
-        MDC.put("dealId", deal.getId().toString());
-        log.trace("Processing current deal");
-
-        boolean processingStatus = true;
-        if (eventType.contentEquals("created") || eventType.contentEquals("updated")) {
-            log.debug("Deal sync event type={}", eventType);
-
-            try {
-                processRecentlyModifiedDeal(deal);
-            } catch (Exception e) {
-                processingStatus = false;
-                log.error("Cannot process deal (id={}). Message={})", deal.getId(), e.getMessage(), e);
-            }
-        }
-
-        return processingStatus;
+    boolean processDeal(String eventType, Deal deal) {
+        return dealService.processDeal(eventType, deal);
     }
 
-    private void processRecentlyModifiedDeal(final Deal deal) {
-        log.trace("Processing recently modified deal={}", deal);
 
-        if (dealService.isDealStageWon(deal)) {
-            log.info("Verifying deal in Won stage");
 
-            MDC.clear();
-            Contact dealsContact = contactService.fetchExistingContact(deal.getContactId());
-            log.trace("Deal's contact={}", dealsContact);
-
-            User contactOwner = contactService.getContactOwner(dealsContact);
-            log.trace("Contact's owner={}", contactOwner);
-
-            if (!isContactOwnerAnAccountManager(contactOwner)) {
-                contactService.updateExistingContact(dealsContact);
-            }
-        }
-    }
-
-    private boolean isContactOwnerAnAccountManager(final User user) {
-        return accountManagersEmails.contains(user.getEmail());
-    }
 
     private String getAccessToken() {
         return Optional.ofNullable(System.getProperty("BASE_CRM_TOKEN", System.getenv("BASE_CRM_TOKEN"))).

@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.MissingResourceException;
 
@@ -19,15 +20,48 @@ public class ContactService {
 
     private Client baseClient;
 
+    private List<String> accountManagersEmails;
     private String accountManagerOnDutyEmail;
 
     private UserService userService;
+    private DealService dealService;
 
-    public ContactService(Client client, String accountManagerOnDutyEmail) {
+    public ContactService(Client client,
+                          String dealNameFormat,
+                          List<String> accountManagersEmails,
+                          String accountManagerOnDutyEmail,
+                          List<String> salesRepresentativesEmails) {
         this.baseClient = client;
+        this.accountManagersEmails = accountManagersEmails;
         this.accountManagerOnDutyEmail = accountManagerOnDutyEmail;
+
         this.userService = new UserService(client);
+        this.dealService = new DealService(client, dealNameFormat, salesRepresentativesEmails, this);
     }
+
+    @SuppressWarnings("squid:S1192")
+    public boolean processContact(final String eventType, final Contact contact) {
+        MDC.put("contactId", contact.getId().toString());
+        log.trace("Processing current contact");
+
+        boolean processingStatus = true;
+        if (eventType.contentEquals("created") || eventType.contentEquals("updated")) {
+            log.debug("Contact sync eventType={}", eventType);
+
+            MDC.clear();
+            try {
+                if (dealService.shouldNewDealBeCreated(contact)) {
+                    dealService.createNewDeal(contact);
+                }
+            } catch (Exception e) {
+                processingStatus = false;
+                log.error("Cannot process contact (id={}). Message={})", contact.getId(), e.getMessage(), e);
+            }
+
+        }
+        return processingStatus;
+    }
+
 
     @SuppressWarnings("squid:S1192")
     public boolean updateExistingContact(final Contact dealsContact) {
@@ -59,5 +93,9 @@ public class ContactService {
 
     public User getContactOwner(Contact contact) {
         return userService.getUserById(contact.getOwnerId());
+    }
+
+    public boolean isContactOwnerAnAccountManager(final User user) {
+        return accountManagersEmails.contains(user.getEmail());
     }
 }
