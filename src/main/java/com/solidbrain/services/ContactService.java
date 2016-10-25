@@ -42,7 +42,7 @@ public class ContactService {
     @SuppressWarnings("squid:S1192")
     public boolean processContact(final String eventType, final Contact contact) {
         MDC.put("contactId", contact.getId().toString());
-        log.trace("Processing current contact");
+        log.debug("Processing current contact");
 
         boolean processingStatus = true;
         if (eventType.contentEquals("created") || eventType.contentEquals("updated")) {
@@ -74,7 +74,7 @@ public class ContactService {
                         "com.getbase.models.User",
                         accountManagerOnDutyEmail));
 
-        log.trace("Account Manager's Id={}", accountManager.getId());
+        log.debug("Account Manager's Id={}", accountManager.getId());
 
         Map<String, Object> contactAttributes = new HashMap<>();
         contactAttributes.put("owner_id", accountManager.getId());

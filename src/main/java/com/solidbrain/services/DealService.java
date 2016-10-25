@@ -39,7 +39,7 @@ public class DealService {
 
     public boolean processDeal(final String eventType, final Deal deal) {
         MDC.put("dealId", deal.getId().toString());
-        log.trace("Processing current deal");
+        log.debug("Processing current deal");
 
         boolean processingStatus = true;
         if (eventType.contentEquals("created") || eventType.contentEquals("updated")) {
@@ -101,19 +101,19 @@ public class DealService {
 
     public boolean shouldNewDealBeCreated(final Contact contact) {
         boolean isContactACompany = contact.getIsOrganization();
-        log.trace("Is current contact a company={}", isContactACompany);
+        log.debug("Is current contact a company={}", isContactACompany);
 
         User owner = contactService.getContactOwner(contact);
-        log.trace("Contact's owner={}", owner);
+        log.debug("Contact's owner={}", owner);
 
         long contactId = contact.getId();
-        log.trace("Contact's id={}", contactId);
+        log.debug("Contact's id={}", contactId);
 
         boolean isUserSalesRepresentative = salesRepresentativesEmails.contains(owner.getEmail());
-        log.trace("Is contact's owner a sales representative={}", isUserSalesRepresentative);
+        log.debug("Is contact's owner a sales representative={}", isUserSalesRepresentative);
 
         boolean activeDealsMissing = areNoActiveDealsFound(contactId);
-        log.trace("No deals found={}", activeDealsMissing);
+        log.debug("No deals found={}", activeDealsMissing);
 
         boolean result = isContactACompany && isUserSalesRepresentative && activeDealsMissing;
         log.debug("Should new deal be created={}", result);
@@ -135,7 +135,7 @@ public class DealService {
     }
 
     public void processRecentlyModifiedDeal(final Deal deal) {
-        log.trace("Processing recently modified deal={}", deal);
+        log.debug("Processing recently modified deal={}", deal);
 
         if (isDealStageWon(deal)) {
             log.info("Verifying deal in Won stage");

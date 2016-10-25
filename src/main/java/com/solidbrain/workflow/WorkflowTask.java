@@ -146,7 +146,7 @@ class WorkflowTask {
     private List<String> getEmailsOfSalesRepresentatives() {
         String emails = System.getProperty("workflow.sales.representatives.emails",
                                 System.getenv("workflow_sales_representatives_emails"));
-        log.trace("Sales representatives emails (raw)={}", emails);
+        log.debug("Sales representatives emails (raw)={}", emails);
 
         return Arrays.stream(Optional.ofNullable(emails)
                         .orElseThrow(() -> new IllegalStateException("Empty list of sales representatives' emails"))
@@ -158,7 +158,7 @@ class WorkflowTask {
     private List<String> getEmailsOfAccountManagers() {
         String emails = System.getProperty("workflow.account.managers.emails",
                                 System.getenv("workflow_account_managers_emails"));
-        log.trace("Account managers emails (raw)={}", emails);
+        log.debug("Account managers emails (raw)={}", emails);
 
         return Arrays.stream(Optional.ofNullable(emails)
                         .orElseThrow(() -> new IllegalStateException("Empty list of account managers emails"))
@@ -170,7 +170,7 @@ class WorkflowTask {
     private String getAccountManagerOnDuty() {
         String email = System.getProperty("workflow.account.manager.on.duty.email",
                                 System.getenv("workflow_account_manager_on_duty_email"));
-        log.trace("Account manager on duty email={}", email);
+        log.debug("Account manager on duty email={}", email);
 
         return Optional.ofNullable(email)
                 .orElseThrow(() -> new IllegalStateException("Empty email of the manager on duty"))
