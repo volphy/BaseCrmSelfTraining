@@ -3,7 +3,8 @@ package com.solidbrain.services;
 import com.getbase.Client;
 import com.getbase.models.User;
 import com.getbase.services.UsersService;
-import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 
@@ -11,11 +12,12 @@ import java.util.Optional;
  * Created by Krzysztof Wilk on 17/10/2016.
  */
 
-@Slf4j
+@Service
 public class UserService {
 
     private Client baseClient;
 
+    @Autowired
     public UserService(Client client) {
         this.baseClient = client;
     }

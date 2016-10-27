@@ -1,5 +1,6 @@
 package com.solidbrain.services;
 
+import com.codahale.metrics.annotation.Timed;
 import com.getbase.Client;
 import com.getbase.models.Contact;
 import com.getbase.models.Deal;
@@ -9,6 +10,11 @@ import com.getbase.services.DealsService;
 import com.getbase.services.StagesService;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.stereotype.Service;
 
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -20,6 +26,7 @@ import static java.util.stream.Collectors.toList;
  * Created by Krzysztof Wilk on 17/10/2016.
  */
 @Slf4j
+@Service
 public class DealService {
 
     private Client baseClient;
@@ -29,7 +36,12 @@ public class DealService {
 
     private ContactService contactService;
 
-    public DealService(Client client, String dealNameFormat, List<String> salesRepresentativesEmails, ContactService contactService) {
+    @Autowired
+    public DealService(Client client,
+                       @Value("${workflow.deal.name.date.format}") String dealNameFormat,
+                       @Qualifier("salesReps") List<String> salesRepresentativesEmails,
+                       @Lazy ContactService contactService)
+                       {
         this.baseClient = client;
         this.dealNameDateFormat = dealNameFormat;
         this.salesRepresentativesEmails = salesRepresentativesEmails;
@@ -37,6 +49,7 @@ public class DealService {
         this.contactService = contactService;
     }
 
+    @Timed(name = "processDeal")
     public boolean processDeal(final String eventType, final Deal deal) {
         MDC.put("dealId", deal.getId().toString());
         log.debug("Processing current deal");

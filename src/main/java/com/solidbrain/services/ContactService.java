@@ -1,10 +1,14 @@
 package com.solidbrain.services;
 
+import com.codahale.metrics.annotation.Timed;
 import com.getbase.Client;
 import com.getbase.models.Contact;
 import com.getbase.models.User;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
 import java.util.List;
@@ -16,6 +20,7 @@ import java.util.MissingResourceException;
  */
 
 @Slf4j
+@Service
 public class ContactService {
 
     private Client baseClient;
@@ -24,22 +29,28 @@ public class ContactService {
     private String accountManagerOnDutyEmail;
 
     private UserService userService;
+
     private DealService dealService;
 
+    @Autowired
     public ContactService(Client client,
-                          String dealNameFormat,
-                          List<String> accountManagersEmails,
-                          String accountManagerOnDutyEmail,
-                          List<String> salesRepresentativesEmails) {
+                          @Qualifier("accountManagers") List<String> accountManagersEmails,
+                          @Qualifier("accountManager") String accountManagerOnDutyEmail,
+                          @Qualifier("salesReps") List<String> salesRepresentativesEmails,
+                          DealService dealService,
+                          UserService userService) {
+
         this.baseClient = client;
+
         this.accountManagersEmails = accountManagersEmails;
         this.accountManagerOnDutyEmail = accountManagerOnDutyEmail;
 
-        this.userService = new UserService(client);
-        this.dealService = new DealService(client, dealNameFormat, salesRepresentativesEmails, this);
+        this.userService = userService;
+        this.dealService = dealService;
     }
 
     @SuppressWarnings("squid:S1192")
+    @Timed(name = "processContact")
     public boolean processContact(final String eventType, final Contact contact) {
         MDC.put("contactId", contact.getId().toString());
         log.debug("Processing current contact");
