@@ -77,7 +77,7 @@ public class DealService {
     }
 
     @SuppressWarnings("squid:S1192")
-    public void createNewDeal(final Contact newContact) {
+    void createNewDeal(final Contact newContact) {
         MDC.put("contactId", newContact.getId().toString());
         log.info("Creating new deal");
 
@@ -105,6 +105,7 @@ public class DealService {
         newDeal.setContactId(newContact.getId());
         newDeal.setOwnerId(newContact.getOwnerId());
 
+        log.info("New deal={}", newDeal);
         Deal newlyCreatedDeal = baseClient.deals()
                 .create(newDeal);
 
@@ -112,7 +113,7 @@ public class DealService {
         log.debug("Created new deal={}", newlyCreatedDeal);
     }
 
-    public boolean shouldNewDealBeCreated(final Contact contact) {
+    boolean shouldNewDealBeCreated(final Contact contact) {
         boolean isContactACompany = contact.getIsOrganization();
         log.debug("Is current contact a company={}", isContactACompany);
 
@@ -147,7 +148,7 @@ public class DealService {
                 .noneMatch(d -> activeStageIds.contains(d.getStageId()));
     }
 
-    public void processRecentlyModifiedDeal(final Deal deal) {
+    private void processRecentlyModifiedDeal(final Deal deal) {
         log.debug("Processing recently modified deal={}", deal);
 
         if (isDealStageWon(deal)) {

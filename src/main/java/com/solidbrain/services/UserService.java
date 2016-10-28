@@ -22,12 +22,12 @@ public class UserService {
         this.baseClient = client;
     }
 
-    public User getUserById(final long userId) {
+    User getUserById(final long userId) {
         return baseClient.users()
                 .get(userId);
     }
 
-    public Optional<User> getUserByEmail(final String email) {
+    Optional<User> getUserByEmail(final String email) {
         return baseClient.users()
                 .list(new UsersService.SearchCriteria().email(email))
                 .stream()

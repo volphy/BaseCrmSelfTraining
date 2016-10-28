@@ -75,7 +75,7 @@ public class ContactService {
 
 
     @SuppressWarnings("squid:S1192")
-    public boolean updateExistingContact(final Contact dealsContact) {
+    boolean updateExistingContact(final Contact dealsContact) {
         MDC.put("contactId", dealsContact.getId().toString());
         log.info("Updating contact's owner");
         MDC.clear();
@@ -97,16 +97,16 @@ public class ContactService {
         return true;
     }
 
-    public Contact fetchExistingContact(final Long contactId) {
+    Contact fetchExistingContact(final Long contactId) {
         return baseClient.contacts()
                 .get(contactId);
     }
 
-    public User getContactOwner(Contact contact) {
+    User getContactOwner(Contact contact) {
         return userService.getUserById(contact.getOwnerId());
     }
 
-    public boolean isContactOwnerAnAccountManager(final User user) {
+    boolean isContactOwnerAnAccountManager(final User user) {
         return accountManagersEmails.contains(user.getEmail());
     }
 }
