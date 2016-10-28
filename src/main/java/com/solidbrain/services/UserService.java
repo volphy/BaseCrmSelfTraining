@@ -1,6 +1,7 @@
 package com.solidbrain.services;
 
 import com.getbase.Client;
+import com.getbase.models.Contact;
 import com.getbase.models.User;
 import com.getbase.services.UsersService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,7 +23,7 @@ public class UserService {
         this.baseClient = client;
     }
 
-    User getUserById(final long userId) {
+    private User getUserById(final long userId) {
         return baseClient.users()
                 .get(userId);
     }
@@ -32,5 +33,9 @@ public class UserService {
                 .list(new UsersService.SearchCriteria().email(email))
                 .stream()
                 .findFirst();
+    }
+
+    User getContactOwner(Contact contact) {
+        return getUserById(contact.getOwnerId());
     }
 }
