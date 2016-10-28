@@ -10,9 +10,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-
-import static java.util.stream.Collectors.toList;
-
 /**
  * Created by Krzysztof Wilk on 06/09/16.
  */
