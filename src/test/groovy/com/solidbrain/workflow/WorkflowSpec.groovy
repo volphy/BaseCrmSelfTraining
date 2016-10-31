@@ -9,11 +9,10 @@ import com.getbase.services.ContactsService
 import com.getbase.services.DealsService
 import com.getbase.services.StagesService
 import com.getbase.services.UsersService
-import com.getbase.sync.Sync
 import com.solidbrain.services.ContactService
 import com.solidbrain.services.DealService
+import com.solidbrain.services.UserService
 import groovy.util.logging.Slf4j
-import spock.lang.Ignore
 import spock.lang.Shared
 import spock.lang.Specification
 
@@ -21,7 +20,6 @@ import spock.lang.Specification
  * Created by Krzysztof Wilk on 06/10/2016.
  */
 @Slf4j
-@Ignore("Unit tests need to be synchronized with latest code changes")
 class WorkflowSpec extends Specification {
 
     @Shared List<String> accountManagersEmails
@@ -65,12 +63,12 @@ class WorkflowSpec extends Specification {
         log.debug("salesRepresentativesEmails={}", salesRepresentativesEmails)
     }
 
+
     def "should create deal if the newly created contact is a company and the owner of the newly created contact is a sales representative"() {
         given:
-        def task = new WorkflowTask()
         def client = Stub(Client)
-        def sync = Stub(Sync)
-        task.initialize(client, sync, dealNameDateFormat, accountManagersEmails, accountManagerOnDutyEmail, salesRepresentativesEmails)
+        def userService = new UserService(client)
+        def contactService = new ContactService(client, dealNameDateFormat, salesRepresentativesEmails, userService)
 
         and:
         def contact = getSampleContact(isOrganization:  true)
@@ -88,7 +86,7 @@ class WorkflowSpec extends Specification {
         client.deals() >> dealsService
 
         when:
-        task.processContact(eventType, contact)
+        contactService.processContact(eventType, contact)
 
         then:
         1 * dealsService.create({ d -> d.name.startsWith(contact.name) && d.contactId == contact.id })
@@ -97,12 +95,12 @@ class WorkflowSpec extends Specification {
         eventType << ["created", "updated"]
     }
 
+
     def "should not create deal if contact does not meet criteria"() {
         given:
-        def task = new WorkflowTask()
         def client = Stub(Client)
-        def sync = Stub(Sync)
-        task.initialize(client, sync, dealNameDateFormat, accountManagersEmails, accountManagerOnDutyEmail, salesRepresentativesEmails)
+        def userService = new UserService(client)
+        def contactService = new ContactService(client, dealNameDateFormat, salesRepresentativesEmails, userService)
 
         and:
         def contact = getSampleContact(isOrganization: isOrganization)
@@ -120,7 +118,7 @@ class WorkflowSpec extends Specification {
         client.deals() >> dealsService
 
         when:
-        task.processContact(eventType, contact)
+        contactService.processContact(eventType, contact)
 
         then:
         0 * dealsService.create(_)
@@ -152,10 +150,9 @@ class WorkflowSpec extends Specification {
 
     def "should assign contact related to won deal to account manager on duty"() {
         given:
-        def task = new WorkflowTask()
         def client = Stub(Client)
-        def sync = Stub(Sync)
-        task.initialize(client, sync, dealNameDateFormat, accountManagersEmails, accountManagerOnDutyEmail, salesRepresentativesEmails)
+        def userService = new UserService(client)
+        def dealService = new DealService(client, accountManagersEmails, accountManagerOnDutyEmail, userService)
 
         and:
         def contact = getSampleContact(isOrganization: true)
@@ -181,7 +178,7 @@ class WorkflowSpec extends Specification {
         client.contacts() >> contactsService
 
         when:
-        task.processDeal(eventType, deal)
+        dealService.processDeal(eventType, deal)
 
         then:
         1 * contactsService.update(contact.id, {attr -> attr["owner_id"] == accountManagerOnDuty.id })
@@ -194,12 +191,12 @@ class WorkflowSpec extends Specification {
         new Stage(id: 1L, category: parameters.category)
     }
 
+
     def "should not assign contact related to won deal to account manager on duty"() {
         given:
-        def task = new WorkflowTask()
         def client = Stub(Client)
-        def sync = Stub(Sync)
-        task.initialize(client, sync, dealNameDateFormat, accountManagersEmails, accountManagerOnDutyEmail, salesRepresentativesEmails)
+        def userService = new UserService(client)
+        def dealService = new DealService(client, accountManagersEmails, accountManagerOnDutyEmail, userService)
 
         and:
         def contact = getSampleContact(isOrganization: true)
@@ -224,7 +221,7 @@ class WorkflowSpec extends Specification {
         client.contacts() >> contactsService
 
         when:
-        task.processDeal(eventType, deal)
+        dealService.processDeal(eventType, deal)
 
         then:
         0 * contactsService.update(_, _)
@@ -263,12 +260,12 @@ class WorkflowSpec extends Specification {
                 ownerId: 465L)
     }
 
+
     def "should fail if processing contact throws exception"() {
         given:
-        def task = new WorkflowTask()
         def client = Stub(Client)
-        def sync = Stub(Sync)
-        task.initialize(client, sync, dealNameDateFormat, accountManagersEmails, accountManagerOnDutyEmail, salesRepresentativesEmails)
+        def userService = new UserService(client)
+        def contactService = new ContactService(client, dealNameDateFormat, salesRepresentativesEmails, userService)
 
         and:
         def contact = getSampleContact(isOrganization: true)
@@ -279,7 +276,7 @@ class WorkflowSpec extends Specification {
         client.users() >> usersService
 
         when:
-        def status = task.processContact(eventType, contact)
+        def status = contactService.processContact(eventType, contact)
 
         then:
         !status
@@ -288,12 +285,12 @@ class WorkflowSpec extends Specification {
         eventType << ["created", "updated"]
     }
 
+
     def "should fail if processing deal throws exception"() {
         given:
-        def task = new WorkflowTask()
         def client = Stub(Client)
-        def sync = Stub(Sync)
-        task.initialize(client, sync, dealNameDateFormat, accountManagersEmails, accountManagerOnDutyEmail, salesRepresentativesEmails)
+        def userService = Stub(UserService)
+        def dealService = new DealService(client, accountManagersEmails, accountManagerOnDutyEmail, userService)
 
         and:
         def deal = getSampleDeal()
@@ -304,7 +301,7 @@ class WorkflowSpec extends Specification {
         client.stages() >> stagesService
 
         when:
-        def status = task.processDeal(eventType, deal)
+        def status = dealService.processDeal(eventType, deal)
 
         then:
         !status
@@ -313,17 +310,20 @@ class WorkflowSpec extends Specification {
         eventType << ["created", "updated"]
     }
 
+
     def "should use default deal name suffix if invalid date format specified"() {
         given:
         def client = Stub(Client)
+        def userService = Stub(UserService)
+        def contactService = new ContactService(client, "INVALID-FORMAT", salesRepresentativesEmails, userService)
+
+        and:
         def dealsService = Mock(DealsService)
         client.deals() >> dealsService
-        def contactService = Stub(ContactService)
-        def dealService = new DealService(client, "INVALID-FORMAT", [], contactService)
         def contact = getSampleContact(isOrganization: true)
 
         when:
-        dealService.createNewDeal(contact)
+        contactService.createNewDeal(contact)
 
         then:
         1 * dealsService.create( { d -> d.name =~ /\d{4}-\d{2}-\d{2}$/ } )
