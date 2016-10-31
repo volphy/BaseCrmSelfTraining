@@ -6,11 +6,7 @@
 
     `git clone https://github.com/volphy/BaseCrmSelfTraining.git`
 
-2. make sure you are using master branch:
-
-    `git branch | grep "^*"`
-
-3. configure sensitive input parameters by setting the following
+2. configure sensitive input parameters by setting the following
 environment variables in your local environment:
 
     - `BASE_CRM`
@@ -23,15 +19,15 @@ environment variables in your local environment:
 
     - `workflow_account_manager_on_duty_email`
 
-4. open first terminal and start the application:
+3. open first terminal and start the application:
 
-    `./gradlew -x test bootRun`
+    `./gradlew bootRun`
 
-5. open second terminal and run integration tests:
+4. open second terminal and run integration tests:
 
     `./gradlew test`
 
-6. upon successful pass of the tests switch back to the first terminal and stop the application (^C)
+5. upon successful pass of the tests switch back to the first terminal and stop the application (^C)
 
 
 ##Dockerized approach (with Docker Gradle plugin):
@@ -40,11 +36,7 @@ environment variables in your local environment:
 
     `git clone https://github.com/volphy/BaseCrmSelfTraining.git`
 
-2. switch to milestone-4 branch:
-
-    `git checkout milestone-4`
-
-3. configure sensitive input parameters by setting the following
+2. configure sensitive input parameters by setting the following
 environment variables in your local environment:
 
     - `BASE_CRM`
@@ -57,25 +49,25 @@ environment variables in your local environment:
 
     - `workflow_account_manager_on_duty_email`
 
-4. open first terminal and build Docker image:
+3. open first terminal and build Docker image:
 
-  `./gradlew -x test buildDocker`
+  `./gradlew buildDocker`
 
-6. build Docker container (and start for the first time) from newly built Docker image:
+4. build Docker container (and start for the first time) from newly built Docker image:
 
-  `cd src/main/resources/docker
+  `cd src/main/resources/docker`
 
-  ./docker_run.sh`
+  `./docker_run.sh`
 
-7. watch logs of newly started Docker container:
+5. watch logs of newly started Docker container:
 
   `./docker_logs.sh`
 
-8. open second terminal and start integration tests:
+6. open second terminal and start integration tests:
 
   `./gradlew test`
 
-9. upon successful pass of the tests stop the application:
+7. upon successful pass of the tests stop the application:
 
   `docker stop self-training`
 
@@ -86,11 +78,7 @@ environment variables in your local environment:
 
     `git clone https://github.com/volphy/BaseCrmSelfTraining.git`
 
-2. switch to milestone-4 branch:
-
-    `git checkout milestone-4`
-
-3. configure sensitive input parameters by setting the following
+2. configure sensitive input parameters by setting the following
 environment variables in your local environment:
 
     - `BASE_CRM`
@@ -103,28 +91,28 @@ environment variables in your local environment:
 
     - `workflow_account_manager_on_duty_email`
 
-4. open first terminal and build application:
+3. open first terminal and build application:
 
-  `./gradlew -x test build`
+  `./gradlew build`
 
-5. build Docker image:
+4. build Docker image:
 
-  `cd src/main/resources/docker
+  `cd src/main/resources/docker`
+  
+  `./docker_build.sh`
 
-  ./docker_build.sh`
-
-6. build Docker container (and start for the first time) from newly built Docker image:
+5. build Docker container (and start for the first time) from newly built Docker image:
 
   `./docker_run.sh`
 
-7. watch logs of newly started Docker container:
+6. watch logs of newly started Docker container:
 
   `./docker_logs.sh`
 
-8. open second terminal and start integration tests:
+7. open second terminal and start integration tests:
 
   `./gradlew test`
 
-9. upon successful pass of the tests switch back to the first terminal and stop the application:
+8. upon successful pass of the tests switch back to the first terminal and stop the application:
 
   `docker stop self-training`
