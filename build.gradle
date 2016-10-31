@@ -38,9 +38,21 @@ repositories {
 
 
 dependencies {
-	compile 'org.springframework.boot:spring-boot-starter-web'
+    compile 'org.springframework.boot:spring-boot-starter-aop'
+	compile 'org.springframework.boot:spring-boot-starter-hateoas'
+    compile 'org.springframework.boot:spring-boot-starter-actuator'
 	compile 'com.getbase:basecrm-java:1.4.4'
 	compile 'org.projectlombok:lombok:1.16.10'
+	compile 'com.ryantenney.metrics:metrics-spring:3.1.3'
+
+    // Enable standard JVM metrics in Spring Boot /metrics
+    compile 'io.dropwizard.metrics:metrics-jvm:3.1.2'
+
+    // Enable SLF4J's Logback metrics in Spring Boot /metrics
+    compile 'io.dropwizard.metrics:metrics-logback:3.1.2'
+
+    // Enable Apache HTTP Client metrics in Spring Boot /metrics
+    compile 'io.dropwizard.metrics:metrics-httpclient:3.1.2'
 
 	testCompile 'org.spockframework:spock-spring:1.1-groovy-2.4-rc-2'
 	testCompile 'org.springframework.boot:spring-boot-starter-test'
@@ -57,6 +69,7 @@ test {
 
 task logInfo {
 	logging.captureStandardOutput LogLevel.INFO
+    logging.captureStandardError LogLevel.ERROR
 }
 
 bootRun {
@@ -65,10 +78,14 @@ bootRun {
 
 
 task buildDocker (type: Docker, dependsOn: build) {
+    group = 'build'
+    description = 'Builds Docker container to run the workflow'
+
     push = false
     applicationName = jar.baseName
     version = jar.version
     dockerfile = file('src/main/resources/docker/Dockerfile')
+
     doFirst {
         copy {
             from jar
@@ -87,4 +104,3 @@ sonarqube {
 jacoco {
     toolVersion = "0.7.7.201606060606"
 }
-
