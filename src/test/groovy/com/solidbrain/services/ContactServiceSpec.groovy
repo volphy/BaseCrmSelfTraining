@@ -4,13 +4,15 @@ import com.getbase.Client
 import com.getbase.services.DealsService
 import com.getbase.services.StagesService
 import com.getbase.services.UsersService
-import com.solidbrain.AbstractSpec
 import groovy.util.logging.Slf4j
+import spock.lang.IgnoreIf
 
 /**
  * Created by Krzysztof Wilk on 06/10/2016.
  */
 @Slf4j
+@IgnoreIf({ properties["integrationTest"] == "true" })
+
 class ContactServiceSpec extends AbstractSpec {
 
     def "should create deal if the newly created contact is a company and the owner of the newly created contact is a sales representative"() {

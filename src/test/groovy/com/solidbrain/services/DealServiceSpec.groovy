@@ -5,11 +5,12 @@ import com.getbase.services.ContactsService
 import com.getbase.services.DealsService
 import com.getbase.services.StagesService
 import com.getbase.services.UsersService
-import com.solidbrain.AbstractSpec
+import spock.lang.IgnoreIf
 
 /**
  * Created by Krzysztof Wilk on 31/10/2016.
  */
+@IgnoreIf({ properties["integrationTest"] == "true" })
 class DealServiceSpec extends AbstractSpec {
 
     def "should assign contact related to won deal to account manager on duty"() {

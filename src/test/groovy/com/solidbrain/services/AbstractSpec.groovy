@@ -1,4 +1,4 @@
-package com.solidbrain
+package com.solidbrain.services
 
 import com.getbase.models.Contact
 import com.getbase.models.Deal
