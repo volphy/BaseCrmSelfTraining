@@ -104,3 +104,9 @@ sonarqube {
 jacoco {
     toolVersion = "0.7.7.201606060606"
 }
+
+task javadocs(type: Javadoc, dependsOn: build) {
+    description = "Generates Javadoc documentation"
+
+    source = sourceSets.main.allJava
+}
